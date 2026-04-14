@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tree Benchmark & Visualization Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3147;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --avl: #22d3ee;
+    --rb: #f87171;
+    --splay: #a78bfa;
+    --btree: #34d399;
+    --red-node: #ef4444;
+    --black-node: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: var(--text2); margin-bottom: 12px; }
+  h3 { font-size: 0.9rem; font-weight: 600; color: var(--accent2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .badge {
+    background: var(--accent);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-weight: 600;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - 57px);
+  }
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .main {
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 0.85rem; color: var(--text2); font-weight: 500; }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  select, input[type=text], input[type=number], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; font-family: monospace; }
+  .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-item input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-avl { background: var(--avl); }
+  .dot-rb { background: var(--rb); }
+  .dot-splay { background: var(--splay); }
+  .dot-btree { background: var(--btree); }
+  .btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    width: 100%;
+  }
+  .btn-primary:hover { background: #4f52d9; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--text); }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .chart-container { position: relative; }
+  svg { display: block; }
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.2s;
+    width: 0%;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-value { font-size: 1.4rem; font-weight: 700; }
+  .stat-label { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+  .stat-avl { color: var(--avl); }
+  .stat-rb { color: var(--rb); }
+  .stat-splay { color: var(--splay); }
+  .stat-btree { color: var(--btree); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    transition: all 0.15s;
+  }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .tab:hover:not(.active) { border-color: var(--accent2); color: var(--text); }
+  .tree-canvas-wrap { width: 100%; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+  canvas { display: block; }
+  #status-msg { font-size: 0.8rem; color: var(--text2); margin-top: 6px; min-height: 20px; }
+  .range-display { font-size: 0.82rem; font-weight: 600; color: var(--accent2); }
+  .inline-flex { display: flex; align-items: center; justify-content: space-between; }
+  .tooltip {
+    position: absolute;
+    background: #1e2132;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .tag-avl { background: rgba(34,211,238,0.15); color: var(--avl); }
+  .tag-rb { background: rgba(248,113,113,0.15); color: var(--rb); }
+  .tag-splay { background: rgba(167,139,250,0.15); color: var(--splay); }
+  .tag-btree { background: rgba(52,211,153,0.15); color: var(--btree); }
+  #custom-data-section { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Tree Benchmark</h1>
+  <span class="badge">AVL · RB · Splay · 2-4</span>
+  <span style="margin-left:auto;font-size:0.8rem;color:var(--text2)">Client-side · No backend</span>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div>
+      <h3>Configuration</h3>
+      <div class="control-group">
+        <div class="inline-flex">
+          <label>Keys (N)</label>
+          <span class="range-display" id="n-display">5000</span>
+        </div>
+        <input type="range" id="n-slider" min="100" max="100000" step="100" value="5000">
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Access Pattern</label>
+      <select id="pattern-select">
+        <option value="uniform">Uniform Random</option>
+        <option value="sequential">Sequential</option>
+        <option value="skewed">Skewed / Zipf (80/20)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Operations</label>
+      <select id="ops-select">
+        <option value="insert">Insert</option>
+        <option value="lookup">Lookup</option>
+        <option value="delete">Delete</option>
+        <option value="mixed">Mixed (Insert+Lookup+Delete)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Trees to Include</label>
+      <div class="checkbox-group">
+        <label class="checkbox-item">
+          <input type="checkbox" id="cb-avl" checked>
+          <span class="dot dot-avl"></span>
+          AVL Tree <span class="tag tag-avl">O(log n)</span>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="cb-rb" checked>
+          <span class="dot dot-rb"></span>
+          Red-Black Tree <span class="tag tag-rb">O(log n)</span>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="cb-splay" checked>
+          <span class="dot dot-splay"></span>
+          Splay Tree <span class="tag tag-splay">amortized</span>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="cb-btree" checked>
+          <span class="dot dot-btree"></span>
+          2-4 Tree <span class="tag tag-btree">O(log n)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div id="custom-data-section" class="control-group">
+      <h3>Custom Data</h3>
+      <label>Insert custom integers (comma or space separated)</label>
+      <textarea id="custom-input" placeholder="e.g. 5 3 8 1 4 7 10 2 6 9"></textarea>
+      <button class="btn btn-sm" id="btn-custom-viz" style="margin-top:4px">Visualize Custom Data</button>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <button class="btn btn-primary" id="btn-run">
+      ▶ Run Benchmark
+    </button>
+    <div id="status-msg">Configure and click Run Benchmark</div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- Stats row -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value stat-avl" id="stat-avl">—</div>
+        <div class="stat-label">AVL ops/ms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-rb" id="stat-rb">—</div>
+        <div class="stat-label">Red-Black ops/ms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-splay" id="stat-splay">—</div>
+        <div class="stat-label">Splay ops/ms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value stat-btree" id="stat-btree">—</div>
+        <div class="stat-label">2-4 Tree ops/ms</div>
+      </div>
+    </div>
+
+    <!-- Tree Visualization -->
+    <div class="card">
+      <div class="chart-header">
+        <h2>Tree Shape Visualization</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="tabs" id="tree-tabs">
+            <div class="tab active" data-tree="avl">AVL</div>
+            <div class="tab" data-tree="rb">Red-Black</div>
+            <div class="tab" data-tree="splay">Splay</div>
+            <div class="tab" data-tree="btree">2-4 Tree</div>
+          </div>
+          <button class="btn btn-sm" id="export-tree">⬇ PNG</button>
+        </div>
+      </div>
+      <div class="tree-canvas-wrap" id="tree-canvas-wrap">
+        <canvas id="tree-canvas" width="800" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- Charts grid -->
+    <div class="charts-grid">
+      <!-- Line chart -->
+      <div class="card">
+        <div class="chart-header">
+          <h2>Throughput vs N</h2>
+          <button class="btn btn-sm" id="export-line">⬇ PNG</button>
+        </div>
+        <div class="chart-container" id="line-chart-container">
+          <svg id="line-chart" width="100%" height="280"></svg>
+        </div>
+      </div>
+
+      <!-- Bar chart -->
+      <div class="card">
+        <div class="chart-header">
+          <h2>Final Tree Height</h2>
+          <button class="btn btn-sm" id="export-bar">⬇ PNG</button>
+        </div>
+        <div class="chart-container" id="bar-chart-container">
+          <svg id="bar-chart" width="100%" height="280"></svg>
+        </div>
+      </div>
+
+      <!-- Height over time -->
+      <div class="card">
+        <div class="chart-header">
+          <h2>Height Over Insertions</h2>
+          <button class="btn btn-sm" id="export-height">⬇ PNG</button>
+        </div>
+        <div class="chart-container" id="height-chart-container">
+          <svg id="height-chart" width="100%" height="280"></svg>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="card">
+        <div class="chart-header">
+          <h2>Splay Access Heatmap</h2>
+          <button class="btn btn-sm" id="export-heat">⬇ PNG</button>
+        </div>
+        <div class="chart-container" id="heat-chart-container">
+          <canvas id="heat-canvas" width="100%" height="280" style="width:100%;height:280px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip" style="display:none"></div>
+
+<script>
+// ============================================================
+// UTILITY
+// ============================================================
+function randInt(lo, hi) { return Math.floor(Math.random() * (hi - lo + 1)) + lo; }
+function now() { return performance.now(); }
+
+// Zipf / skewed distribution
+function buildZipfKeys(N) {
+  // 20% of keys get 80% probability
+  const hotCount = Math.max(1, Math.floor(N * 0.2));
+  const hot = Array.from({length: hotCount}, (_, i) => i + 1);
+  const cold = Array.from({length: N - hotCount}, (_, i) => i + hotCount + 1);
+  return { hot, cold, all: hot.concat(cold) };
+}
+
+function generateKeys(N, pattern) {
+  if (pattern === 'sequential') {
+    return Array.from({length: N}, (_, i) => i + 1);
+  } else if (pattern === 'skewed') {
+    const {all} = buildZipfKeys(N);
+    // Shuffle but bias toward hot
+    return all;
+  } else {
+    // uniform random
+    const keys = new Set();
+    while (keys.size < N) keys.add(randInt(1, N * 3));
+    return [...keys];
+  }
+}
+
+function sampleKey(keys, pattern, zipf) {
+  if (pattern === 'skewed' && zipf) {
+    if (Math.random() < 0.8) {
+      return zipf.hot[randInt(0, zipf.hot.length - 1)];
+    } else {
+      return zipf.cold[randInt(0, zipf.cold.length - 1)];
+    }
+  }
+  return keys[randInt(0, keys.length - 1)];
+}
+
+// ============================================================
+// AVL TREE
+// ============================================================
+class AVLNode {
+  constructor(key) {
+    this.key = key; this.left = null; this.right = null; this.height = 1;
+  }
+}
+
+class AVLTree {
+  constructor() { this.root = null; this.name = 'AVL'; }
+  _h(n) { return n ? n.height : 0; }
+  _upd(n) { n.height = 1 + Math.max(this._h(n.left), this._h(n.right)); }
+  _bf(n) { return this._h(n.left) - this._h(n.right); }
+  _rotR(y) {
+    const x = y.left, T2 = x.right;
+    x.right = y; y.left = T2;
+    this._upd(y); this._upd(x);
+    return x;
+  }
+  _rotL(x) {
+    const y = x.right, T2 = y.left;
+    y.left = x; x.right = T2;
+    this._upd(x); this._upd(y);
+    return y;
+  }
+  _balance(n) {
+    this._upd(n);
+    const bf = this._bf(n);
+    if (bf > 1) {
+      if (this._bf(n.left) < 0) n.left = this._rotL(n.left);
+      return this._rotR(n);
+    }
+    if (bf < -1) {
+      if (this._bf(n.right) > 0) n.right = this._rotR(n.right);
+      return this._rotL(n);
+    }
+    return n;
+  }
+  _insert(n, key) {
+    if (!n) return new AVLNode(key);
+    if (key < n.key) n.left = this._insert(n.left, key);
+    else if (key > n.key) n.right = this._insert(n.right, key);
+    else return n;
+    return this._balance(n);
+  }
+  _minNode(n) { while (n.left) n = n.left; return n; }
+  _delete(n, key) {
+    if (!n) return null;
+    if (key < n.key) n.left = this._delete(n.left, key);
+    else if (key > n.key) n.right = this._delete(n.right, key);
+    else {
+      if (!n.left || !n.right) return n.left || n.right;
+      const succ = this._minNode(n.right);
+      n.key = succ.key;
+      n.right = this._delete(n.right, succ.key);
+    }
+    return this._balance(n);
+  }
+  _search(n, key) {
+    while (n) {
+      if (key === n.key) return true;
+      n = key < n.key ? n.left : n.right;
+    }
+    return false;
+  }
+  insert(key) { this.root = this._insert(this.root, key); }
+  delete(key) { this.root = this._delete(this.root, key); }
+  search(key) { return this._search(this.root, key); }
+  height() { return this._h(this.root); }
+  clear() { this.root = null; }
+}
+
+// ============================================================
+// RED-BLACK TREE
+// ============================================================
+const RED = true, BLACK = false;
+class RBNode {
+  constructor(key) {
+    this.key = key; this.left = null; this.right = null; this.color = RED; this.size = 1;
+  }
+}
+
+class RBTree {
+  constructor() { this.root = null; this.name = 'RB'; }
+  _isRed(n) { return n ? n.color === RED : false; }
+  _sz(n) { return n ? n.size : 0; }
+  _updSz(n) { n.size = 1 + this._sz(n.left) + this._sz(n.right); }
+  _rotL(h) {
+    const x = h.right; h.right = x.left; x.left = h;
+    x.color = h.color; h.color = RED;
+    x.size = h.size; this._updSz(h);
+    return x;
+  }
+  _rotR(h) {
+    const x = h.left; h.left = x.right; x.right = h;
+    x.color = h.color; h.color = RED;
+    x.size = h.size; this._updSz(h);
+    return x;
+  }
+  _flip(h) {
+    h.color = !h.color;
+    h.left.color = !h.left.color;
+    h.right.color = !h.right.color;
+  }
+  _fix(h) {
+    if (this._isRed(h.right) && !this._isRed(h.left)) h = this._rotL(h);
+    if (this._isRed(h.left) && this._isRed(h.left && h.left.left)) h = this._rotR(h);
+    if (this._isRed(h.left) && this._isRed(h.right)) this._flip(h);
+    this._updSz(h);
+    return h;
+  }
+  _insert(h, key) {
+    if (!h) return new RBNode(key);
+    if (key < h.key) h.left = this._insert(h.left, key);
+    else if (key > h.key) h.right = this._insert(h.right, key);
+    return this._fix(h);
+  }
+  _moveRedL(h) {
+    this._flip(h);
+    if (this._isRed(h.right && h.right.left)) {
+      h.right = this._rotR(h.right); h = this._rotL(h); this._flip(h);
+    }
+    return h;
+  }
+  _moveRedR(h) {
+    this._flip(h);
+    if (this._isRed(h.left && h.left.left)) {
+      h = this._rotR(h); this._flip(h);
+    }
+    return h;
+  }
+  _minNode(n) { while (n.left) n = n.left; return n; }
+  _delMin(h) {
+    if (!h.left) return null;
+    if (!this._isRed(h.left) && !this._isRed(h.left.left)) h = this._moveRedL(h);
+    h.left = this._delMin(h.left);
+    return this._fix(h);
+  }
+  _delete(h, key) {
+    if (!h) return null;
+    if (key < h.key) {
+      if (!h.left) return h;
+      if (!this._isRed(h.left) && !this._isRed(h.left.left)) h = this._moveRedL(h);
+      h.left = this._delete(h.left, key);
+    } else {
+      if (this._isRed(h.left)) h = this._rotR(h);
+      if (key === h.key && !h.right) return null;
+      if (h.right && !this._isRed(h.right) && !this._isRed(h.right.left)) h = this._moveRedR(h);
+      if (key === h.key) {
+        const m = this._minNode(h.right);
+        h.key = m.key;
+        h.right = this._delMin(h.right);
+      } else {
+        h.right = this._delete(h.right, key);
+      }
+    }
+    return this._fix(h);
+  }
+  insert(key) {
+    this.root = this._insert(this.root, key);
+    if (this.root) this.root.color = BLACK;
+  }
+  delete(key) {
+    if (!this.root) return;
+    if (!this._isRed(this.root.left) && !this._isRed(this.root.right)) this.root.color = RED;
+    this.root = this._delete(this.root, key);
+    if (this.root) this.root.color = BLACK;
+  }
+  search(key) {
+    let n = this.root;
+    while (n) {
+      if (key === n.key) return true;
+      n = key < n.key ? n.left : n.right;
+    }
+    return false;
+  }
+  _height(n) { return n ? 1 + Math.max(this._height(n.left), this._height(n.right)) : 0; }
+  height() { return this._height(this.root); }
+  clear() { this.root = null; }
+}
+
+// ============================================================
+// SPLAY TREE
+// ============================================================
+class SplayNode {
+  constructor(key) {
+    this.key = key; this.left = null; this.right = null;
+    this.accessCount = 0;
+  }
+}
+
+class SplayTree {
+  constructor() { this.root = null; this.name = 'Splay'; this.lastPath = []; }
+  _rotR(x) {
+    const y = x.left; x.left = y.right; y.right = x; return y;
+  }
+  _rotL(x) {
+    const y = x.right; x.right = y.left; y.left = x; return y;
+  }
+  _splay(n, key) {
+    if (!n || n.key === key) return n;
+    if (key < n.key) {
+      if (!n.left) return n;
+      if (key < n.left.key) {
+        n.left.left = this._splay(n.left.left, key); // zig-zig
+        n = this._rotR(n);
+      } else if (key > n.left.key) {
+        n.left.right = this._splay(n.left.right, key); // zig-zag
+        if (n.left.right) n.left = this._rotL(n.left);
+      }
+      return n.left ? this._rotR(n) : n;
+    } else {
+      if (!n.right) return n;
+      if (key > n.right.key) {
+        n.right.right = this._splay(n.right.right, key); // zig-zig
+        n = this._rotL(n);
+      } else if (key < n.right.key) {
+        n.right.left = this._splay(n.right.left, key); // zig-zag
+        if (n.right.left) n.right = this._rotR(n.right);
+      }
+      return n.right ? this._rotL(n) : n;
+    }
+  }
+  insert(key) {
+    if (!this.root) { this.root = new SplayNode(key); return; }
+    this.root = this._splay(this.root, key);
+    if (this.root.key === key) return;
+    const n = new SplayNode(key);
+    if (key < this.root.key) {
+      n.right = this.root; n.left = this.root.left; this.root.left = null;
+    } else {
+      n.left = this.root; n.right = this.root.right; this.root.right = null;
+    }
+    this.root = n;
+  }
+  search(key) {
+    this.root = this._splay(this.root, key);
+    if (this.root && this.root.key === key) { this.root.accessCount++; return true; }
+    return false;
+  }
+  delete(key) {
+    if (!this.root) return;
+    this.root = this._splay(this.root, key);
+    if (this.root.key !== key) return;
+    if (!this.root.left) { this.root = this.root.right; }
+    else {
+      const right = this.root.right;
+      this.root = this._splay(this.root.left, key);
+      this.root.right = right;
+    }
+  }
+  _height(n) { return n ? 1 + Math.max(this._height(n.left), this._height(n.right)) : 0; }
+  height() { return this._height(this.root); }
+  clear() { this.root = null; }
+}
+
+// ============================================================
+// 2-4 TREE (B-Tree of order 4)
+// ============================================================
+class TwoFourNode {
+  constructor() {
+    this.keys = [];
+    this.children = [];
+    this.isLeaf = true;
+  }
+  get keyCount() { return this.keys.length; }
+  isFull() { return this.keys.length === 3; }
+}
+
+class TwoFourTree {
+  constructor() { this.root = new TwoFourNode(); this.name = '2-4'; }
+
+  search(key) {
+    return this._search(this.root, key);
+  }
+  _search(node, key) {
+    let i = 0;
+    while (i < node.keys.length && key > node.keys[i]) i++;
+    if (i < node.keys.length && key === node.keys[i]) return true;
+    if (node.isLeaf) return false;
+    return this._search(node.children[i], key);
+  }
+
+  insert(key) {
+    const root = this.root;
+    if (root.isFull()) {
+      const newRoot = new TwoFourNode();
+      newRoot.isLeaf = false;
+      newRoot.children.push(this.root);
+      this._splitChild(newRoot, 0);
+      this.root = newRoot;
+    }
+    this._insertNonFull(this.root, key);
+  }
+  _splitChild(parent, i) {
+    const full = parent.children[i];
+    const newNode = new TwoFourNode();
+    newNode.isLeaf = full.isLeaf;
+    const mid = 1; // index 1 of 3 keys (0-indexed)
+    const midKey = full.keys[mid];
+    newNode.keys = full.keys.splice(mid + 1);
+    full.keys.splice(mid); // remove mid key from full
+    if (!full.isLeaf) {
+      newNode.children = full.children.splice(mid + 1);
+    }
+    parent.keys.splice(i, 0, midKey);
+    parent.children.splice(i + 1, 0, newNode);
+  }
+  _insertNonFull(node, key) {
+    let i = node.keys.length - 1;
+    if (node.isLeaf) {
+      // insert sorted
+      node.keys.push(key);
+      node.keys.sort((a, b) => a - b);
+      // deduplicate
+      node.keys = [...new Set(node.keys)];
+    } else {
+      while (i >= 0 && key < node.keys[i]) i--;
+      i++;
+      if (node.children[i] && node.children[i].isFull()) {
+        this._splitChild(node, i);
+        if (key > node.keys[i]) i++;
+      }
+      if (node.children[i]) this._insertNonFull(node.children[i], key);
+    }
+  }
+
+  delete(key) {
+    this._delete(this.root, key);
+    if (!this.root.isLeaf && this.root.keys.length === 0) {
+      this.root = this.root.children[0] || new TwoFourNode();
+    }
+  }
+  _findKeyIdx(node, key) {
+    for (let i = 0; i < node.keys.length; i++) if (node.keys[i] === key) return i;
+    return -1;
+  }
+  _getPredecessor(node) {
+    while (!node.isLeaf) node = node.children[node.children.length - 1];
+    return node.keys[node.keys.length - 1];
+  }
+  _getSuccessor(node) {
+    while (!node.isLeaf) node = node.children[0];
+    return node.keys[0];
+  }
+  _fill(node, i) {
+    const child = node.children[i];
+    if (i > 0 && node.children[i - 1].keys.length > 1) {
+      // borrow from left sibling
+      const leftSib = node.children[i - 1];
+      child.keys.unshift(node.keys[i - 1]);
+      node.keys[i - 1] = leftSib.keys.pop();
+      if (!leftSib.isLeaf) child.children.unshift(leftSib.children.pop());
+    } else if (i < node.children.length - 1 && node.children[i + 1].keys.length > 1) {
+      // borrow from right sibling
+      const rightSib = node.children[i + 1];
+      child.keys.push(node.keys[i]);
+      node.keys[i] = rightSib.keys.shift();
+      if (!rightSib.isLeaf) child.children.push(rightSib.children.shift());
+    } else {
+      // merge
+      if (i < node.children.length - 1) {
+        this._merge(node, i);
+      } else {
+        this._merge(node, i - 1);
+      }
+    }
+  }
+  _merge(node, i) {
+    const leftChild = node.children[i];
+    const rightChild = node.children[i + 1];
+    leftChild.keys.push(node.keys[i]);
+    leftChild.keys = leftChild.keys.concat(rightChild.keys);
+    if (!leftChild.isLeaf) leftChild.children = leftChild.children.concat(rightChild.children);
+    node.keys.splice(i, 1);
+    node.children.splice(i + 1, 1);
+  }
+  _delete(node, key) {
+    const i = this._findKeyIdx(node, key);
+    if (i !== -1) {
+      if (node.isLeaf) {
+        node.keys.splice(i, 1);
+      } else {
+        if (node.children[i].keys.length > 1) {
+          const pred = this._getPredecessor(node.children[i]);
+          node.keys[i] = pred;
+          this._delete(node.children[i], pred);
+        } else if (node.children[i + 1] && node.children[i + 1].keys.length > 1) {
+          const succ = this._getSuccessor(node.children[i + 1]);
+          node.keys[i] = succ;
+          this._delete(node.children[i + 1], succ);
+        } else {
+          this._merge(node, i);
+          this._delete(node.children[i], key);
+        }
+      }
+    } else {
+      if (node.isLeaf) return;
+      let ci = 0;
+      while (ci < node.keys.length && key > node.keys[ci]) ci++;
+      if (node.children[ci] && node.children[ci].keys.length === 1) this._fill(node, ci);
+      // recalculate index after fill/merge
+      let ci2 = 0;
+      while (ci2 < node.keys.length && key > node.keys[ci2]) ci2++;
+      if (node.children[ci2]) this._delete(node.children[ci2], key);
+    }
+  }
+
+  _height(node) {
+    if (node.isLeaf) return 1;
+    return 1 + this._height(node.children[0]);
+  }
+  height() { return this._height(this.root); }
+  clear() { this.root = new TwoFourNode(); }
+}
+
+// ============================================================
+// BENCHMARK ENGINE
+// ============================================================
+const BATCH = 1000;
+
+async function runBenchmark(N, pattern, opType, trees, onProgress) {
+  const results = {};
+  for (const t of trees) {
+    t.clear();
+    results[t.name] = { times: [], heights: [], totalOps: 0, totalMs: 0 };
+  }
+
+  const keys = generateKeys(N, pattern);
+  const zipf = pattern === 'skewed' ? buildZipfKeys(N) : null;
+
+  // Pre-insert for lookup/delete
+  if (opType === 'lookup' || opType === 'delete') {
+    for (const t of trees) {
+      for (const k of keys) t.insert(k);
+    }
+  }
+
+  const totalBatches = Math.ceil(N / BATCH);
+  let batchIdx = 0;
+
+  for (let start = 0; start < N; start += BATCH) {
+    const end = Math.min(start + BATCH, N);
+    const batchKeys = keys.slice(start, end);
+
+    for (const t of trees) {
+      const r = results[t.name];
+      const t0 = now();
+      for (const k of batchKeys) {
+        if (opType === 'insert') t.insert(k);
+        else if (opType === 'lookup') t.search(k);
+        else if (opType === 'delete') t.delete(k);
+        else {
+          // mixed
+          const rnd = Math.random();
+          if (rnd < 0.5) t.insert(k);
+          else if (rnd < 0.75) t.search(k);
+          else t.delete(k);
+        }
+      }
+      const elapsed = now() - t0;
+      r.totalOps += batchKeys.length;
+      r.totalMs += elapsed;
+      r.times.push({ n: end, opsPerMs: batchKeys.length / Math.max(elapsed, 0.001) });
+      r.heights.push({ n: end, h: t.height() });
+    }
+
+    batchIdx++;
+    onProgress(batchIdx / totalBatches);
+    await new Promise(r => setTimeout(r, 0)); // yield to UI
+  }
+
+  for (const t of trees) {
+    const r = results[t.name];
+    r.finalOpsPerMs = r.totalOps / Math.max(r.totalMs, 0.001);
+    r.finalHeight = t.height();
+  }
+
+  return results;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let lastResults = null;
+let lastTrees = { avl: null, rb: null, splay: null, btree: null };
+let activeTreeTab = 'avl';
+let customMode = false;
+
+const TREE_COLORS = {
+  avl: '#22d3ee',
+  rb: '#f87171',
+  splay: '#a78bfa',
+  btree: '#34d399',
+};
+
+// ============================================================
+// CANVAS TREE RENDERER
+// ============================================================
+function renderTreeCanvas(treeKey) {
+  const canvas = document.getElementById('tree-canvas');
+  const ctx = canvas.getContext('2d');
+  const tree = lastTrees[treeKey];
+  const wrap = document.getElementById('tree-canvas-wrap');
+
+  if (!tree || !tree.root) {
+    canvas.width = wrap.clientWidth || 800;
+    canvas.height = 300;
+    ctx.fillStyle = '#1a1d27';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data — run benchmark or insert custom data', canvas.width / 2, 150);
+    return;
+  }
+
+  // Lay out nodes
+  const nodes = [];
+  const radius = 18;
+  const levelGap = 56;
+  let minX = Infinity, maxX = -Infinity;
+
+  function computeLayout(node, depth, counter) {
+    if (!node) return;
+    if (node.keys) {
+      // 2-4 tree node
+      computeLayout24(node, depth, counter);
+      return;
+    }
+    if (node.left) computeLayout(node.left, depth + 1, counter);
+    node._x = counter.v++;
+    node._y = depth;
+    nodes.push(node);
+    if (node.right) computeLayout(node.right, depth + 1, counter);
+  }
+
+  // in-order layout
+  if (treeKey === 'btree') {
+    // Special 24 layout
+    render24Tree(canvas, ctx, tree);
+    return;
+  }
+
+  const counter = {v: 0};
+  computeLayout(tree.root, 0, counter);
+
+  const totalNodes = counter.v;
+  const W = Math.max(wrap.clientWidth || 800, totalNodes * (radius*2+6) + 40);
+  const maxDepth = Math.max(...nodes.map(n => n._y));
+  const H = Math.max(300, (maxDepth + 2) * levelGap + 60);
+
+  canvas.width = W;
+  canvas.height = H;
+
+  const xScale = (W - 40) / Math.max(totalNodes, 1);
+
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw edges
+  ctx.strokeStyle = '#2e3147';
+  ctx.lineWidth = 1.5;
+  for (const n of nodes) {
+    const px = 20 + n._x * xScale + xScale/2;
+    const py = 40 + n._y * levelGap;
+    if (n.left) {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(20 + n.left._x * xScale + xScale/2, 40 + n.left._y * levelGap);
+      ctx.stroke();
+    }
+    if (n.right) {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(20 + n.right._x * xScale + xScale/2, 40 + n.right._y * levelGap);
+      ctx.stroke();
+    }
+  }
+
+  // Draw nodes
+  for (const n of nodes) {
+    const px = 20 + n._x * xScale + xScale/2;
+    const py = 40 + n._y * levelGap;
+
+    let fillColor, strokeColor, textColor = '#e2e8f0';
+    if (treeKey === 'rb') {
+      fillColor = n.color === RED ? '#7f1d1d' : '#1e293b';
+      strokeColor = n.color === RED ? '#ef4444' : '#475569';
+    } else if (treeKey === 'splay') {
+      const isRoot = n === tree.root;
+      const freq = n.accessCount || 0;
+      const maxFreq = Math.max(1, ...nodes.map(nd => nd.accessCount || 0));
+      const intensity = freq / maxFreq;
+      fillColor = isRoot ? '#4c1d95' : `rgba(167,139,250,${0.15 + intensity * 0.7})`;
+      strokeColor = isRoot ? '#a78bfa' : '#6d28d9';
+    } else {
+      fillColor = '#1e293b';
+      strokeColor = TREE_COLORS[treeKey] || '#6366f1';
+    }
+
+    const r = Math.min(radius, xScale/2 - 2);
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (r > 8) {
+      ctx.fillStyle = textColor;
+      ctx.font = `${Math.min(11, r)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = String(n.key);
+      if (label.length <= 4) ctx.fillText(label, px, py);
+    }
+  }
+}
+
+function render24Tree(canvas, ctx, tree) {
+  const wrap = document.getElementById('tree-canvas-wrap');
+  const levelGap = 70;
+  const nodeW = 60;
+  const nodeH = 28;
+
+  // BFS to get levels
+  const levels = [];
+  let queue = [tree.root];
+  while (queue.length > 0) {
+    levels.push([...queue]);
+    const next = [];
+    for (const n of queue) {
+      if (!n.isLeaf) for (const c of n.children) next.push(c);
+    }
+    queue = next;
+  }
+
+  const W = Math.max(wrap.clientWidth || 800, levels.reduce((a, lvl) => Math.max(a, lvl.length * (nodeW + 20) + 40), 100));
+  const H = Math.max(300, levels.length * levelGap + 80);
+  canvas.width = W; canvas.height = H;
+
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Position nodes
+  const pos = new Map();
+  levels.forEach((lvl, depth) => {
+    const totalW = lvl.length * (nodeW + 20);
+    const startX = (W - totalW) / 2;
+    lvl.forEach((node, i) => {
+      pos.set(node, { x: startX + i * (nodeW + 20) + nodeW/2, y: 40 + depth * levelGap });
+    });
+  });
+
+  // Draw edges
+  ctx.strokeStyle = '#2e3147';
+  ctx.lineWidth = 1.5;
+  for (const [node, p] of pos.entries()) {
+    if (!node.isLeaf) {
+      for (const child of node.children) {
+        const cp = pos.get(child);
+        if (cp) {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y + nodeH/2); ctx.lineTo(cp.x, cp.y - nodeH/2); ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Draw nodes
+  for (const [node, p] of pos.entries()) {
+    const kw = Math.max(nodeW, node.keys.length * 24 + 10);
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const rx = 4, ry = 4, bx = p.x - kw/2, by = p.y - nodeH/2;
+    if (ctx.roundRect) {
+      ctx.roundRect(bx, by, kw, nodeH, rx);
+    } else {
+      ctx.moveTo(bx + rx, by);
+      ctx.lineTo(bx + kw - rx, by); ctx.arcTo(bx + kw, by, bx + kw, by + ry, ry);
+      ctx.lineTo(bx + kw, by + nodeH - ry); ctx.arcTo(bx + kw, by + nodeH, bx + kw - rx, by + nodeH, ry);
+      ctx.lineTo(bx + rx, by + nodeH); ctx.arcTo(bx, by + nodeH, bx, by + nodeH - ry, ry);
+      ctx.lineTo(bx, by + ry); ctx.arcTo(bx, by, bx + rx, by, ry);
+      ctx.closePath();
+    }
+    ctx.fill(); ctx.stroke();
+
+    // dividers + keys
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    node.keys.forEach((k, i) => {
+      const kx = p.x + (i - (node.keys.length - 1) / 2) * 24;
+      ctx.fillText(String(k), kx, p.y);
+      if (i < node.keys.length - 1) {
+        ctx.strokeStyle = '#2e3147';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(kx + 12, p.y - nodeH/2 + 4);
+        ctx.lineTo(kx + 12, p.y + nodeH/2 - 4);
+        ctx.stroke();
+      }
+    });
+  }
+}
+
+// ============================================================
+// D3 CHARTS
+// ============================================================
+function drawLineChart(results, enabledTrees) {
+  const svg = d3.select('#line-chart');
+  svg.selectAll('*').remove();
+
+  const container = document.getElementById('line-chart-container');
+  const W = container.clientWidth || 500;
+  const H = 280;
+  const margin = {top: 20, right: 80, bottom: 50, left: 60};
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top - margin.bottom;
+
+  svg.attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Collect all data
+  const allData = [];
+  for (const [name, r] of Object.entries(results)) {
+    for (const t of r.times) allData.push(t);
+  }
+
+  const xExt = d3.extent(allData, d => d.n);
+  const yExt = d3.extent(allData, d => d.opsPerMs);
+
+  const x = d3.scaleLinear().domain(xExt).range([0, iW]);
+  const y = d3.scaleLinear().domain([0, yExt[1] * 1.1]).range([iH, 0]);
+
+  // Grid
+  g.append('g').attr('class', 'grid')
+    .call(d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(''))
+    .selectAll('line').style('stroke', '#2e3147').style('stroke-dasharray', '3,3');
+  g.select('.grid .domain').remove();
+
+  // Axes
+  g.append('g').attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d3.format('.2s')))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '11px');
+  g.append('g')
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => d.toFixed(0)))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '11px');
+  g.selectAll('.domain').style('stroke', '#2e3147');
+  g.selectAll('.tick line').style('stroke', '#2e3147');
+
+  // Axis labels
+  g.append('text').attr('x', iW / 2).attr('y', iH + 40)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('N (keys)');
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -iH/2).attr('y', -45)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('ops/ms');
+
+  const treeNameMap = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'};
+
+  // Lines
+  for (const [key, name] of Object.entries(treeNameMap)) {
+    if (!enabledTrees.includes(key)) continue;
+    const tname = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'}[key];
+    if (!results[tname]) continue;
+    const data = results[tname].times;
+    const line = d3.line().x(d => x(d.n)).y(d => y(d.opsPerMs)).curve(d3.curveCatmullRom);
+    g.append('path').datum(data).attr('fill', 'none')
+      .attr('stroke', TREE_COLORS[key]).attr('stroke-width', 2)
+      .attr('d', line);
+  }
+
+  // Legend
+  let li = 0;
+  for (const [key, name] of Object.entries(treeNameMap)) {
+    if (!enabledTrees.includes(key)) continue;
+    const tname = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'}[key];
+    if (!results[tname]) continue;
+    const ly = li * 18;
+    g.append('rect').attr('x', iW + 8).attr('y', ly).attr('width', 12).attr('height', 3)
+      .attr('rx', 2).attr('fill', TREE_COLORS[key]);
+    g.append('text').attr('x', iW + 24).attr('y', ly + 4)
+      .style('fill', '#e2e8f0').style('font-size', '10px').text(tname);
+    li++;
+  }
+}
+
+function drawBarChart(results, enabledTrees) {
+  const svg = d3.select('#bar-chart');
+  svg.selectAll('*').remove();
+
+  const container = document.getElementById('bar-chart-container');
+  const W = container.clientWidth || 500;
+  const H = 280;
+  const margin = {top: 20, right: 20, bottom: 50, left: 50};
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top - margin.bottom;
+
+  svg.attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const treeNameMap = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'};
+  const data = [];
+  for (const [key, tname] of Object.entries(treeNameMap)) {
+    if (!enabledTrees.includes(key)) continue;
+    if (results[tname]) data.push({ label: tname, h: results[tname].finalHeight, color: TREE_COLORS[key] });
+  }
+
+  const x = d3.scaleBand().domain(data.map(d => d.label)).range([0, iW]).padding(0.3);
+  const y = d3.scaleLinear().domain([0, d3.max(data, d => d.h) * 1.15]).range([iH, 0]);
+
+  g.append('g').attr('class', 'grid')
+    .call(d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(''))
+    .selectAll('line').style('stroke', '#2e3147').style('stroke-dasharray', '3,3');
+  g.select('.grid .domain').remove();
+
+  g.append('g').attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(x))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '12px');
+  g.append('g').call(d3.axisLeft(y).ticks(5))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '11px');
+  g.selectAll('.domain').style('stroke', '#2e3147');
+  g.selectAll('.tick line').style('stroke', '#2e3147');
+
+  g.append('text').attr('x', iW/2).attr('y', iH + 40)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('Tree Type');
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -iH/2).attr('y', -38)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('Height');
+
+  g.selectAll('.bar').data(data).enter().append('rect')
+    .attr('class', 'bar')
+    .attr('x', d => x(d.label))
+    .attr('width', x.bandwidth())
+    .attr('y', d => y(d.h))
+    .attr('height', d => iH - y(d.h))
+    .attr('fill', d => d.color)
+    .attr('rx', 4)
+    .attr('opacity', 0.85);
+
+  g.selectAll('.bar-label').data(data).enter().append('text')
+    .attr('x', d => x(d.label) + x.bandwidth()/2)
+    .attr('y', d => y(d.h) - 6)
+    .attr('text-anchor', 'middle')
+    .style('fill', '#e2e8f0')
+    .style('font-size', '12px')
+    .style('font-weight', '600')
+    .text(d => d.h);
+}
+
+function drawHeightChart(results, enabledTrees) {
+  const svg = d3.select('#height-chart');
+  svg.selectAll('*').remove();
+
+  const container = document.getElementById('height-chart-container');
+  const W = container.clientWidth || 500;
+  const H = 280;
+  const margin = {top: 20, right: 80, bottom: 50, left: 50};
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top - margin.bottom;
+
+  svg.attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const treeNameMap = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'};
+
+  const allH = [];
+  for (const [key, tname] of Object.entries(treeNameMap)) {
+    if (!enabledTrees.includes(key) || !results[tname]) continue;
+    for (const h of results[tname].heights) allH.push(h);
+  }
+
+  const xExt = d3.extent(allH, d => d.n);
+  const yExt = d3.extent(allH, d => d.h);
+
+  const x = d3.scaleLinear().domain(xExt).range([0, iW]);
+  const y = d3.scaleLinear().domain([0, yExt[1] * 1.1]).range([iH, 0]);
+
+  g.append('g').attr('class', 'grid')
+    .call(d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(''))
+    .selectAll('line').style('stroke', '#2e3147').style('stroke-dasharray', '3,3');
+  g.select('.grid .domain').remove();
+
+  g.append('g').attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d3.format('.2s')))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '11px');
+  g.append('g').call(d3.axisLeft(y).ticks(5))
+    .selectAll('text').style('fill', '#94a3b8').style('font-size', '11px');
+  g.selectAll('.domain').style('stroke', '#2e3147');
+  g.selectAll('.tick line').style('stroke', '#2e3147');
+
+  g.append('text').attr('x', iW/2).attr('y', iH + 40)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('N (keys)');
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -iH/2).attr('y', -38)
+    .style('fill', '#94a3b8').style('font-size', '11px').attr('text-anchor', 'middle').text('Height');
+
+  let li = 0;
+  for (const [key, tname] of Object.entries(treeNameMap)) {
+    if (!enabledTrees.includes(key) || !results[tname]) continue;
+    const data = results[tname].heights;
+    const line = d3.line().x(d => x(d.n)).y(d => y(d.h)).curve(d3.curveCatmullRom);
+    g.append('path').datum(data).attr('fill', 'none')
+      .attr('stroke', TREE_COLORS[key]).attr('stroke-width', 2)
+      .attr('d', line);
+    const ly = li * 18;
+    g.append('rect').attr('x', iW + 8).attr('y', ly).attr('width', 12).attr('height', 3)
+      .attr('rx', 2).attr('fill', TREE_COLORS[key]);
+    g.append('text').attr('x', iW + 24).attr('y', ly + 4)
+      .style('fill', '#e2e8f0').style('font-size', '10px').text(tname);
+    li++;
+  }
+}
+
+function drawHeatmap(splayTree) {
+  const canvas = document.getElementById('heat-canvas');
+  const ctx = canvas.getContext('2d');
+  const container = document.getElementById('heat-chart-container');
+  const W = container.clientWidth || 500;
+  const H = 280;
+  canvas.width = W;
+  canvas.height = H;
+
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!splayTree || !splayTree.root) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('No splay tree data', W/2, H/2);
+    return;
+  }
+
+  // Collect all nodes with in-order index and access count
+  const nodes = [];
+  function inorder(n) {
+    if (!n) return;
+    inorder(n.left);
+    nodes.push({ key: n.key, count: n.accessCount || 0 });
+    inorder(n.right);
+  }
+  inorder(splayTree.root);
+
+  if (nodes.length === 0) return;
+
+  const maxCount = Math.max(1, ...nodes.map(n => n.count));
+  const cellW = Math.max(1, W / nodes.length);
+  const cellH = H - 40;
+
+  const colorScale = d3.scaleSequential(d3.interpolatePlasma).domain([0, maxCount]);
+
+  nodes.forEach((n, i) => {
+    ctx.fillStyle = n.count > 0 ? colorScale(n.count) : '#1a1d27';
+    ctx.fillRect(i * cellW, 10, Math.max(1, cellW - 1), cellH);
+  });
+
+  // Color bar
+  const barH = 12;
+  const barY = H - barH - 4;
+  for (let i = 0; i < W; i++) {
+    ctx.fillStyle = colorScale((i / W) * maxCount);
+    ctx.fillRect(i, barY, 1, barH);
+  }
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('0', 2, barY - 2);
+  ctx.textAlign = 'right';
+  ctx.fillText(maxCount + ' accesses', W - 2, barY - 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Access Frequency per Node (sorted by key)', W/2, barY - 2);
+}
+
+// ============================================================
+// PNG EXPORT
+// ============================================================
+function exportCanvas(canvas, filename) {
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }, 'image/png');
+}
+
+function exportSVGasPNG(svgId, filename) {
+  const svgEl = document.getElementById(svgId);
+  const serializer = new XMLSerializer();
+  let svgStr = serializer.serializeToString(svgEl);
+
+  const W = svgEl.width.baseVal.value || svgEl.clientWidth;
+  const H = svgEl.height.baseVal.value || svgEl.clientHeight;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2;
+  canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  const img = new Image();
+  const blob = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0);
+    exportCanvas(canvas, filename);
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// ============================================================
+// UI WIRING
+// ============================================================
+const nSlider = document.getElementById('n-slider');
+const nDisplay = document.getElementById('n-display');
+nSlider.addEventListener('input', () => {
+  nDisplay.textContent = parseInt(nSlider.value).toLocaleString();
+});
+
+document.querySelectorAll('#tree-tabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#tree-tabs .tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeTreeTab = tab.dataset.tree;
+    renderTreeCanvas(activeTreeTab);
+  });
+});
+
+document.getElementById('export-tree').addEventListener('click', () => {
+  exportCanvas(document.getElementById('tree-canvas'), `tree-${activeTreeTab}.png`);
+});
+document.getElementById('export-line').addEventListener('click', () => {
+  exportSVGasPNG('line-chart', 'throughput-vs-n.png');
+});
+document.getElementById('export-bar').addEventListener('click', () => {
+  exportSVGasPNG('bar-chart', 'tree-heights.png');
+});
+document.getElementById('export-height').addEventListener('click', () => {
+  exportSVGasPNG('height-chart', 'height-over-insertions.png');
+});
+document.getElementById('export-heat').addEventListener('click', () => {
+  exportCanvas(document.getElementById('heat-canvas'), 'splay-heatmap.png');
+});
+
+// Custom data
+document.getElementById('btn-custom-viz').addEventListener('click', () => {
+  const raw = document.getElementById('custom-input').value;
+  const parsed = raw.split(/[\s,]+/).map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+  if (parsed.length === 0) { alert('No valid integers found.'); return; }
+
+  // Build all trees from custom data
+  const avl = new AVLTree();
+  const rb = new RBTree();
+  const splay = new SplayTree();
+  const btree = new TwoFourTree();
+  for (const k of parsed) { avl.insert(k); rb.insert(k); splay.insert(k); btree.insert(k); }
+
+  lastTrees.avl = avl; lastTrees.rb = rb; lastTrees.splay = splay; lastTrees.btree = btree;
+  customMode = true;
+
+  renderTreeCanvas(activeTreeTab);
+
+  // Update stats
+  document.getElementById('stat-avl').textContent = avl.height();
+  document.getElementById('stat-rb').textContent = rb.height();
+  document.getElementById('stat-splay').textContent = splay.height();
+  document.getElementById('stat-btree').textContent = btree.height();
+  document.querySelector('[data-stat="avl"] .stat-label') && null;
+  // re-label
+  ['avl','rb','splay','btree'].forEach(k => {
+    const el = document.getElementById(`stat-${k}`);
+    if (el) el.parentElement.querySelector('.stat-label').textContent = `${k.toUpperCase()} height`;
+  });
+
+  drawHeatmap(splay);
+  document.getElementById('status-msg').textContent = `Custom data: ${parsed.length} keys inserted into all trees`;
+});
+
+document.getElementById('btn-run').addEventListener('click', async () => {
+  const N = parseInt(nSlider.value);
+  const pattern = document.getElementById('pattern-select').value;
+  const opType = document.getElementById('ops-select').value;
+
+  const enabledKeys = [];
+  if (document.getElementById('cb-avl').checked) enabledKeys.push('avl');
+  if (document.getElementById('cb-rb').checked) enabledKeys.push('rb');
+  if (document.getElementById('cb-splay').checked) enabledKeys.push('splay');
+  if (document.getElementById('cb-btree').checked) enabledKeys.push('btree');
+
+  if (enabledKeys.length === 0) { alert('Select at least one tree.'); return; }
+
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running…';
+
+  const treesMap = { avl: new AVLTree(), rb: new RBTree(), splay: new SplayTree(), btree: new TwoFourTree() };
+  const treesToRun = enabledKeys.map(k => treesMap[k]);
+
+  // Store for viz
+  lastTrees.avl = treesMap.avl;
+  lastTrees.rb = treesMap.rb;
+  lastTrees.splay = treesMap.splay;
+  lastTrees.btree = treesMap.btree;
+
+  const progressFill = document.getElementById('progress-fill');
+  const statusMsg = document.getElementById('status-msg');
+
+  try {
+    const results = await runBenchmark(N, pattern, opType, treesToRun, (pct) => {
+      progressFill.style.width = (pct * 100) + '%';
+      statusMsg.textContent = `Running… ${Math.round(pct * 100)}% (${opType} · ${pattern})`;
+    });
+
+    lastResults = results;
+
+    // Update stat cards
+    const treeNameMap = {avl: 'AVL', rb: 'RB', splay: 'Splay', btree: '2-4'};
+    for (const [key, tname] of Object.entries(treeNameMap)) {
+      const el = document.getElementById(`stat-${key}`);
+      if (results[tname]) {
+        el.textContent = results[tname].finalOpsPerMs.toFixed(1);
+        el.parentElement.querySelector('.stat-label').textContent = `${tname} ops/ms`;
+      } else {
+        el.textContent = '—';
+      }
+    }
+
+    // Draw charts
+    drawLineChart(results, enabledKeys);
+    drawBarChart(results, enabledKeys);
+    drawHeightChart(results, enabledKeys);
+    drawHeatmap(lastTrees.splay);
+    renderTreeCanvas(activeTreeTab);
+
+    statusMsg.textContent = `Done! N=${N.toLocaleString()} · ${opType} · ${pattern}`;
+    progressFill.style.width = '100%';
+    setTimeout(() => progressFill.style.width = '0%', 1000);
+  } catch (e) {
+    statusMsg.textContent = 'Error: ' + e.message;
+    console.error(e);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Run Benchmark';
+});
+
+// Initial render
+renderTreeCanvas(activeTreeTab);
+</script>
+</body>
+</html>
