@@ -53,6 +53,8 @@ function makeTree(type) {
     case 'redblack': return new RedBlackTree();
     case 'splay':    return new SplayTree();
     case 'twofour':  return new TwoFourTree();
+    case 'treap':    return new TreapTree();
+    case 'aatree':   return new AATree();
   }
 }
 
