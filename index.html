@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tree Benchmarker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="trees/avl.js"></script>
+<script src="trees/redblack.js"></script>
+<script src="trees/splay.js"></script>
+<script src="trees/twofour.js"></script>
+<script src="trees/benchmark.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -591,400 +596,10 @@
 <script>
 // ─────────────────────────────────────────────
 // TREE COLORS / LABELS
+// (Tree classes + benchmark functions loaded from trees/*.js)
 // ─────────────────────────────────────────────
 const TREE_COLORS = { avl: '#2563eb', redblack: '#dc2626', splay: '#16a34a', twofour: '#d97706' };
 const TREE_LABELS = { avl: 'AVL', redblack: 'Red-Black', splay: 'Splay', twofour: '2-4 Tree' };
-
-// ─────────────────────────────────────────────
-// AVL TREE
-// ─────────────────────────────────────────────
-function avlNodeHeight(n) { return n ? n.height : 0; }
-function avlBF(n) { return avlNodeHeight(n.left) - avlNodeHeight(n.right); }
-function avlUpdateH(n) { n.height = 1 + Math.max(avlNodeHeight(n.left), avlNodeHeight(n.right)); }
-function avlRotR(y) {
-  const x = y.left, T2 = x.right;
-  x.right = y; y.left = T2;
-  avlUpdateH(y); avlUpdateH(x); return x;
-}
-function avlRotL(x) {
-  const y = x.right, T2 = y.left;
-  y.left = x; x.right = T2;
-  avlUpdateH(x); avlUpdateH(y); return y;
-}
-function avlBalance(n) {
-  avlUpdateH(n);
-  const bf = avlBF(n);
-  if (bf > 1) { if (avlBF(n.left) < 0) n.left = avlRotL(n.left); return avlRotR(n); }
-  if (bf < -1) { if (avlBF(n.right) > 0) n.right = avlRotR(n.right); return avlRotL(n); }
-  return n;
-}
-function avlInsert(node, key) {
-  if (!node) return { key, height: 1, left: null, right: null, accessCount: 0 };
-  if (key < node.key) node.left = avlInsert(node.left, key);
-  else if (key > node.key) node.right = avlInsert(node.right, key);
-  else return node;
-  return avlBalance(node);
-}
-function avlFindMin(n) { while (n.left) n = n.left; return n; }
-function avlDelete(node, key) {
-  if (!node) return null;
-  if (key < node.key) node.left = avlDelete(node.left, key);
-  else if (key > node.key) node.right = avlDelete(node.right, key);
-  else {
-    if (!node.left) return node.right;
-    if (!node.right) return node.left;
-    const m = avlFindMin(node.right); node.key = m.key; node.right = avlDelete(node.right, m.key);
-  }
-  return avlBalance(node);
-}
-function avlSearch(node, key) {
-  if (!node) return false;
-  if (key < node.key) return avlSearch(node.left, key);
-  if (key > node.key) return avlSearch(node.right, key);
-  node.accessCount++; return true;
-}
-class AVLTree {
-  constructor() { this.root = null; }
-  insert(k) { this.root = avlInsert(this.root, k); }
-  delete(k) { this.root = avlDelete(this.root, k); }
-  search(k) { return avlSearch(this.root, k); }
-  height() { return avlNodeHeight(this.root); }
-  size() { let c=0,s=[this.root]; while(s.length){const n=s.pop();if(!n)continue;c++;s.push(n.left,n.right);} return c; }
-  clear() { this.root = null; }
-}
-
-// ─────────────────────────────────────────────
-// RED-BLACK TREE (classic Cormen — parent pointers)
-// ─────────────────────────────────────────────
-function rbMakeNIL() {
-  const n = {}; n.key=0; n.color='BLACK'; n.isNIL=true; n.accessCount=0; n.left=n; n.right=n; n.parent=n; return n;
-}
-function rbMakeNode(key, NIL) { return {key, color:'RED', left:NIL, right:NIL, parent:NIL, accessCount:0, isNIL:false}; }
-class RedBlackTree {
-  constructor() { this.NIL = rbMakeNIL(); this.root = this.NIL; }
-  _rotL(x) {
-    const y=x.right; x.right=y.left;
-    if(!y.left.isNIL) y.left.parent=x;
-    y.parent=x.parent;
-    if(x.parent.isNIL) this.root=y;
-    else if(x===x.parent.left) x.parent.left=y;
-    else x.parent.right=y;
-    y.left=x; x.parent=y;
-  }
-  _rotR(y) {
-    const x=y.left; y.left=x.right;
-    if(!x.right.isNIL) x.right.parent=y;
-    x.parent=y.parent;
-    if(y.parent.isNIL) this.root=x;
-    else if(y===y.parent.right) y.parent.right=x;
-    else y.parent.left=x;
-    x.right=y; y.parent=x;
-  }
-  _insertFix(z) {
-    while(z.parent.color==='RED') {
-      if(z.parent===z.parent.parent.left) {
-        const y=z.parent.parent.right;
-        if(y.color==='RED'){z.parent.color='BLACK';y.color='BLACK';z.parent.parent.color='RED';z=z.parent.parent;}
-        else{if(z===z.parent.right){z=z.parent;this._rotL(z);}z.parent.color='BLACK';z.parent.parent.color='RED';this._rotR(z.parent.parent);}
-      } else {
-        const y=z.parent.parent.left;
-        if(y.color==='RED'){z.parent.color='BLACK';y.color='BLACK';z.parent.parent.color='RED';z=z.parent.parent;}
-        else{if(z===z.parent.left){z=z.parent;this._rotR(z);}z.parent.color='BLACK';z.parent.parent.color='RED';this._rotL(z.parent.parent);}
-      }
-    }
-    this.root.color='BLACK';
-  }
-  insert(key) {
-    const z=rbMakeNode(key,this.NIL); let y=this.NIL, x=this.root;
-    while(!x.isNIL){y=x;if(z.key<x.key)x=x.left;else if(z.key>x.key)x=x.right;else return;}
-    z.parent=y;
-    if(y.isNIL)this.root=z;
-    else if(z.key<y.key)y.left=z;
-    else y.right=z;
-    this._insertFix(z);
-  }
-  _transplant(u,v){if(u.parent.isNIL)this.root=v;else if(u===u.parent.left)u.parent.left=v;else u.parent.right=v;v.parent=u.parent;}
-  _deleteFix(x) {
-    while(x!==this.root&&x.color==='BLACK') {
-      if(x===x.parent.left){
-        let w=x.parent.right;
-        if(w.color==='RED'){w.color='BLACK';x.parent.color='RED';this._rotL(x.parent);w=x.parent.right;}
-        if(w.left.color==='BLACK'&&w.right.color==='BLACK'){w.color='RED';x=x.parent;}
-        else{if(w.right.color==='BLACK'){w.left.color='BLACK';w.color='RED';this._rotR(w);w=x.parent.right;}
-          w.color=x.parent.color;x.parent.color='BLACK';w.right.color='BLACK';this._rotL(x.parent);x=this.root;}
-      } else {
-        let w=x.parent.left;
-        if(w.color==='RED'){w.color='BLACK';x.parent.color='RED';this._rotR(x.parent);w=x.parent.left;}
-        if(w.right.color==='BLACK'&&w.left.color==='BLACK'){w.color='RED';x=x.parent;}
-        else{if(w.left.color==='BLACK'){w.right.color='BLACK';w.color='RED';this._rotL(w);w=x.parent.left;}
-          w.color=x.parent.color;x.parent.color='BLACK';w.left.color='BLACK';this._rotR(x.parent);x=this.root;}
-      }
-    }
-    x.color='BLACK';
-  }
-  delete(key) {
-    let z=this.root;
-    while(!z.isNIL){if(key<z.key)z=z.left;else if(key>z.key)z=z.right;else break;}
-    if(z.isNIL)return;
-    let y=z,yOrig=y.color,x;
-    if(z.left.isNIL){x=z.right;this._transplant(z,z.right);}
-    else if(z.right.isNIL){x=z.left;this._transplant(z,z.left);}
-    else{y=z.right;while(!y.left.isNIL)y=y.left;yOrig=y.color;x=y.right;
-      if(y.parent===z)x.parent=y;
-      else{this._transplant(y,y.right);y.right=z.right;y.right.parent=y;}
-      this._transplant(z,y);y.left=z.left;y.left.parent=y;y.color=z.color;}
-    if(yOrig==='BLACK')this._deleteFix(x);
-  }
-  search(key) {
-    let x=this.root;
-    while(!x.isNIL){if(key<x.key)x=x.left;else if(key>x.key)x=x.right;else{x.accessCount++;return true;}}
-    return false;
-  }
-  height() { const h=(n)=>n.isNIL?0:1+Math.max(h(n.left),h(n.right)); return h(this.root); }
-  size() { let c=0,s=[this.root]; while(s.length){const n=s.pop();if(n.isNIL)continue;c++;s.push(n.left,n.right);} return c; }
-  clear() { this.root=this.NIL; }
-  getNIL() { return this.NIL; }
-}
-
-// ─────────────────────────────────────────────
-// SPLAY TREE (top-down)
-// ─────────────────────────────────────────────
-function splayRotR(x){const y=x.left;x.left=y.right;y.right=x;return y;}
-function splayRotL(x){const y=x.right;x.right=y.left;y.left=x;return y;}
-function splayOp(root, key) {
-  if(!root) return null;
-  const hdr={key:0,left:null,right:null,accessCount:0,recentlyAccessed:false};
-  let l=hdr,r=hdr,t=root;
-  while(true){
-    if(key<t.key){
-      if(!t.left)break;
-      if(key<t.left.key){t=splayRotR(t);if(!t.left)break;}
-      r.left=t;r=t;t=t.left;
-    } else if(key>t.key){
-      if(!t.right)break;
-      if(key>t.right.key){t=splayRotL(t);if(!t.right)break;}
-      l.right=t;l=t;t=t.right;
-    } else break;
-  }
-  l.right=t.left;r.left=t.right;t.left=hdr.right;t.right=hdr.left;return t;
-}
-class SplayTree {
-  constructor(){this.root=null;this.recentPath=[];}
-  insert(key){
-    this.root=splayOp(this.root,key);
-    if(!this.root){this.root={key,left:null,right:null,accessCount:0,recentlyAccessed:false};return;}
-    if(this.root.key===key)return;
-    const n={key,left:null,right:null,accessCount:0,recentlyAccessed:false};
-    if(key<this.root.key){n.right=this.root;n.left=this.root.left;this.root.left=null;}
-    else{n.left=this.root;n.right=this.root.right;this.root.right=null;}
-    this.root=n;
-  }
-  delete(key){
-    this.root=splayOp(this.root,key);
-    if(!this.root||this.root.key!==key)return;
-    if(!this.root.left){this.root=this.root.right;}
-    else{const right=this.root.right;this.root=splayOp(this.root.left,key);if(this.root)this.root.right=right;}
-  }
-  search(key){
-    this.root=splayOp(this.root,key);
-    if(this.root&&this.root.key===key){this.root.accessCount++;this.root.recentlyAccessed=true;this.recentPath=[key];return true;}
-    return false;
-  }
-  height(){const h=(n)=>n?1+Math.max(h(n.left),h(n.right)):0;return h(this.root);}
-  size(){let c=0,s=[this.root];while(s.length){const n=s.pop();if(!n)continue;c++;s.push(n.left,n.right);}return c;}
-  clear(){this.root=null;this.recentPath=[];}
-}
-
-// ─────────────────────────────────────────────
-// 2-4 TREE
-// ─────────────────────────────────────────────
-function tf24Make(keys=[],children=[]){return{keys:[...keys],children:[...children],accessCount:keys.map(()=>0)};}
-function tf24IsLeaf(n){return n.children.length===0;}
-function tf24SplitChild(parent,i){
-  const full=parent.children[i];
-  const mid=full.keys[1];
-  const left=tf24Make([full.keys[0]],tf24IsLeaf(full)?[]:[full.children[0],full.children[1]]);
-  left.accessCount=[full.accessCount[0]];
-  const right=tf24Make([full.keys[2]],tf24IsLeaf(full)?[]:[full.children[2],full.children[3]]);
-  right.accessCount=[full.accessCount[2]];
-  parent.keys.splice(i,0,mid);
-  parent.accessCount.splice(i,0,full.accessCount[1]);
-  parent.children.splice(i,1,left,right);
-}
-function tf24InsertNF(node,key){
-  if(tf24IsLeaf(node)){
-    let i=node.keys.length-1;
-    while(i>=0&&key<node.keys[i])i--;
-    if(i>=0&&node.keys[i]===key)return;
-    node.keys.splice(i+1,0,key);
-    node.accessCount.splice(i+1,0,0);
-    return;
-  }
-  let i=node.keys.length-1;
-  while(i>=0&&key<node.keys[i])i--;
-  if(i>=0&&node.keys[i]===key)return;
-  i++;
-  if(node.children[i].keys.length===3){
-    tf24SplitChild(node,i);
-    if(key>node.keys[i])i++;
-    if(key===node.keys[i])return;
-  }
-  tf24InsertNF(node.children[i],key);
-}
-function tf24Search(node,key){
-  if(!node)return false;
-  let i=0;while(i<node.keys.length&&key>node.keys[i])i++;
-  if(i<node.keys.length&&node.keys[i]===key){node.accessCount[i]++;return true;}
-  if(tf24IsLeaf(node))return false;
-  return tf24Search(node.children[i],key);
-}
-function tf24Merge(parent,i){
-  const l=parent.children[i],r=parent.children[i+1];
-  l.keys.push(parent.keys[i],...r.keys);
-  l.accessCount.push(parent.accessCount[i],...r.accessCount);
-  l.children.push(...r.children);
-  parent.keys.splice(i,1);parent.accessCount.splice(i,1);parent.children.splice(i+1,1);
-}
-function tf24Delete(node,key){
-  const t=2;
-  let i=0;while(i<node.keys.length&&key>node.keys[i])i++;
-  if(i<node.keys.length&&node.keys[i]===key){
-    if(tf24IsLeaf(node)){node.keys.splice(i,1);node.accessCount.splice(i,1);return;}
-    if(node.children[i].keys.length>=t){
-      let pred=node.children[i];while(!tf24IsLeaf(pred))pred=pred.children[pred.children.length-1];
-      const pk=pred.keys[pred.keys.length-1];node.keys[i]=pk;node.accessCount[i]=0;tf24Delete(node.children[i],pk);
-    } else if(node.children[i+1].keys.length>=t){
-      let succ=node.children[i+1];while(!tf24IsLeaf(succ))succ=succ.children[0];
-      const sk=succ.keys[0];node.keys[i]=sk;node.accessCount[i]=0;tf24Delete(node.children[i+1],sk);
-    } else {tf24Merge(node,i);tf24Delete(node.children[i],key);}
-    return;
-  }
-  if(tf24IsLeaf(node))return;
-  const ci=i,child=node.children[ci];
-  if(child.keys.length<t){
-    const lSib=ci>0?node.children[ci-1]:null;
-    const rSib=ci<node.children.length-1?node.children[ci+1]:null;
-    if(lSib&&lSib.keys.length>=t){
-      child.keys.unshift(node.keys[ci-1]);child.accessCount.unshift(0);
-      node.keys[ci-1]=lSib.keys[lSib.keys.length-1];node.accessCount[ci-1]=0;
-      lSib.keys.pop();lSib.accessCount.pop();
-      if(!tf24IsLeaf(lSib)){child.children.unshift(lSib.children[lSib.children.length-1]);lSib.children.pop();}
-    } else if(rSib&&rSib.keys.length>=t){
-      child.keys.push(node.keys[ci]);child.accessCount.push(0);
-      node.keys[ci]=rSib.keys[0];node.accessCount[ci]=0;
-      rSib.keys.shift();rSib.accessCount.shift();
-      if(!tf24IsLeaf(rSib)){child.children.push(rSib.children[0]);rSib.children.shift();}
-    } else {
-      if(lSib){tf24Merge(node,ci-1);tf24Delete(node.children[ci-1],key);return;}
-      else{tf24Merge(node,ci);tf24Delete(node.children[ci],key);return;}
-    }
-  }
-  tf24Delete(node.children[ci],key);
-}
-class TwoFourTree {
-  constructor(){this.root=null;}
-  insert(key){
-    if(!this.root){this.root=tf24Make([key]);return;}
-    if(this.root.keys.length===3){const nr=tf24Make([],[this.root]);tf24SplitChild(nr,0);this.root=nr;}
-    tf24InsertNF(this.root,key);
-  }
-  delete(key){
-    if(!this.root)return;
-    tf24Delete(this.root,key);
-    if(this.root.keys.length===0&&this.root.children.length>0)this.root=this.root.children[0];
-    if(this.root&&this.root.keys.length===0)this.root=null;
-  }
-  search(key){return tf24Search(this.root,key);}
-  height(){const h=(n)=>!n?0:tf24IsLeaf(n)?1:1+Math.max(...n.children.map(h));return h(this.root);}
-  size(){let c=0,s=[this.root];while(s.length){const n=s.pop();if(!n)continue;c+=n.keys.length;for(const ch of n.children)s.push(ch);}return c;}
-  clear(){this.root=null;}
-}
-
-// ─────────────────────────────────────────────
-// KEY GENERATION
-// ─────────────────────────────────────────────
-function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
-function generateKeys(n, pattern, customData) {
-  if(customData&&customData.length>0){
-    const d=[...customData].slice(0,n);
-    while(d.length<n)d.push(d[Math.floor(Math.random()*d.length)]);
-    return d;
-  }
-  const base=Array.from({length:n},(_,i)=>i+1);
-  if(pattern==='sequential')return base;
-  if(pattern==='uniform')return shuffle(base);
-  // skewed
-  const hotKeys=base.slice(0,Math.floor(n*0.2));
-  const keys=[];
-  const hot=Math.floor(n*0.8),cold=n-hot;
-  for(let i=0;i<hot;i++)keys.push(hotKeys[Math.floor(Math.random()*hotKeys.length)]);
-  for(let i=0;i<cold;i++)keys.push(base[Math.floor(Math.random()*base.length)]);
-  return shuffle(keys);
-}
-
-// ─────────────────────────────────────────────
-// BENCHMARK ENGINE
-// ─────────────────────────────────────────────
-function makeTree(type){
-  switch(type){
-    case 'avl': return new AVLTree();
-    case 'redblack': return new RedBlackTree();
-    case 'splay': return new SplayTree();
-    case 'twofour': return new TwoFourTree();
-  }
-}
-function benchTree(treeType, keys, operation, batchSize){
-  const tree=makeTree(treeType);
-  const n=keys.length;
-  const heightSamples=[];
-  const splayCounts=new Map();
-  if(operation!=='insert')for(const k of keys)tree.insert(k);
-  const t0=performance.now();
-  for(let i=0;i<n;i++){
-    const k=keys[i];
-    if(operation==='insert')tree.insert(k);
-    else if(operation==='lookup'){
-      tree.search(k);
-      if(treeType==='splay'&&tree.root)splayCounts.set(tree.root.key,(splayCounts.get(tree.root.key)??0)+1);
-    }
-    else tree.delete(k);
-    if((i+1)%batchSize===0)heightSamples.push({batch:(i+1)/batchSize,height:tree.height()});
-  }
-  const totalMs=performance.now()-t0;
-  if(treeType==='splay'){
-    const stk=[tree.root];
-    while(stk.length){const nd=stk.pop();if(!nd)continue;if(nd.accessCount>0)splayCounts.set(nd.key,nd.accessCount);stk.push(nd.left,nd.right);}
-  }
-  return{totalMs,finalHeight:tree.height(),heightSamples,splayCounts,treeRef:tree};
-}
-function runBenchmark(config){
-  const{n,pattern,operation,trees,customData}=config;
-  const keys=generateKeys(n,pattern,customData);
-  const batchSize=Math.max(100,Math.floor(n/100));
-  const results=[];
-  const splayAccessCounts=new Map();
-  const treeRefs={};
-  for(const treeType of trees){
-    const{totalMs,finalHeight,heightSamples,splayCounts,treeRef}=benchTree(treeType,[...keys],operation,batchSize);
-    results.push({tree:treeType,totalMs,opsPerMs:n/Math.max(totalMs,0.001),finalHeight,heightSamples});
-    if(treeType==='splay')splayCounts.forEach((v,k)=>splayAccessCounts.set(k,v));
-    treeRefs[treeType]=treeRef;
-  }
-  return{config,results,splayAccessCounts,treeRefs};
-}
-const N_SWEEP=[500,1000,2000,5000,10000,20000,50000];
-function runSweep(nValues,pattern,operation,trees){
-  const points=[];
-  for(const n of nValues){
-    const keys=generateKeys(n,pattern);
-    const bs=Math.max(100,Math.floor(n/100));
-    for(const t of trees){
-      const{totalMs}=benchTree(t,[...keys],operation,bs);
-      points.push({n,tree:t,opsPerMs:n/Math.max(totalMs,0.001)});
-    }
-  }
-  return points;
-}
 
 // ─────────────────────────────────────────────
 // INSERTION LOG
@@ -1154,12 +769,14 @@ function renderLineChart(container, points, enabledTrees){
 // ─────────────────────────────────────────────
 // CHART: TREE DIAGRAM
 // ─────────────────────────────────────────────
-const MAX_NODES = 120;
+// Tree diagram display cap. Diagrams above this are shown at full cap
+// (a sample of DIAG_CAP keys) with a notice. Raised from 120 to 300 so
+// that small-to-medium runs show the full tree.
+const DIAG_CAP = 300;
 
 function buildAVLLayout(root){
   if(!root)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
-  if(h.descendants().length>MAX_NODES)return{nodes:[],edges:[],size:h.descendants().length,tooLarge:true};
   const layout=d3.tree().nodeSize([30,56])(h);
   const nodes=[],edges=[];
   layout.each(d=>nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:TREE_COLORS.avl,textColor:'#fff',shape:'circle'}));
@@ -1169,7 +786,6 @@ function buildAVLLayout(root){
 function buildRBLayout(root, NIL){
   if(!root||root.isNIL)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left&&!n.left.isNIL)c.push(n.left);if(n.right&&!n.right.isNIL)c.push(n.right);return c.length?c:null;});
-  if(h.descendants().length>MAX_NODES)return{nodes:[],edges:[],size:h.descendants().length,tooLarge:true};
   const layout=d3.tree().nodeSize([30,56])(h);
   const nodes=[],edges=[];
   layout.each(d=>nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:d.data.color==='RED'?'#dc2626':'#18181b',textColor:'#fff',shape:'circle'}));
@@ -1179,7 +795,6 @@ function buildRBLayout(root, NIL){
 function buildSplayLayout(root){
   if(!root)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
-  if(h.descendants().length>MAX_NODES)return{nodes:[],edges:[],size:h.descendants().length,tooLarge:true};
   const layout=d3.tree().nodeSize([30,56])(h);
   const rootKey=root.key;
   const nodes=[],edges=[];
@@ -1193,7 +808,6 @@ function buildSplayLayout(root){
 function buildTwoFourLayout(root){
   if(!root)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>n.children.length?n.children:null);
-  if(h.descendants().length>MAX_NODES)return{nodes:[],edges:[],size:h.descendants().length,tooLarge:true};
   const layout=d3.tree().nodeSize([70,56])(h);
   const nodes=[],edges=[];
   layout.each(d=>{
@@ -1256,68 +870,46 @@ function renderTreeDiagram(container, benchResult, selectedTree, enabledTrees){
   });
 
   const content=container.querySelector('#tree-content');
-  const treeRef=benchResult.treeRefs?.[selectedTree];
+  const configN = benchResult.config.n;
 
-  // Check size
-  let size=0;
-  if(treeRef){
-    try{size=treeRef.size();}catch(e){size=999;}
-  }
+  // Always rebuild an insert-only tree for the diagram.
+  // This means:
+  //   • For insert benchmarks: we see the exact final state.
+  //   • For lookup/delete benchmarks: we see the fully-populated tree
+  //     (which is the interesting structure anyway — not a partially-deleted one).
+  // If N > DIAG_CAP we sample DIAG_CAP keys from the same sequence and show a
+  // representative sub-tree with a notice.
+  const diagN   = Math.min(configN, DIAG_CAP);
+  const isCapped = configN > DIAG_CAP;
 
-  if(!treeRef||size===0){
-    content.innerHTML='<div class="too-large-msg"><p>No data for this tree.</p></div>';
+  const diagKeys = generateKeys(diagN, benchResult.config.pattern, benchResult.config.customData);
+  const t = makeTree(selectedTree);
+  for (const k of diagKeys) t.insert(k);
+
+  let layout;
+  if (selectedTree === 'avl')      layout = buildAVLLayout(t.root);
+  else if (selectedTree === 'redblack') layout = buildRBLayout(t.root, t.getNIL());
+  else if (selectedTree === 'splay')   layout = buildSplayLayout(t.root);
+  else                                 layout = buildTwoFourLayout(t.root);
+
+  if (!layout.nodes.length) {
+    content.innerHTML = '<div class="too-large-msg"><p>Empty tree.</p></div>';
     return;
   }
 
-  // Rebuild small tree for diagram if config N is small enough
-  const configN=benchResult.config.n;
-  let layout={nodes:[],edges:[],size:0};
-
-  if(configN>MAX_NODES){
-    // Rebuild small version from config
-    const diagKeys=generateKeys(Math.min(configN,MAX_NODES),benchResult.config.pattern,benchResult.config.customData);
-    const t=makeTree(selectedTree);
-    for(const k of diagKeys)t.insert(k);
-    if(selectedTree==='avl')layout=buildAVLLayout(t.root);
-    else if(selectedTree==='redblack')layout=buildRBLayout(t.root,t.getNIL());
-    else if(selectedTree==='splay')layout=buildSplayLayout(t.root);
-    else layout=buildTwoFourLayout(t.root);
-  } else {
-    if(selectedTree==='avl')layout=buildAVLLayout(treeRef.root);
-    else if(selectedTree==='redblack')layout=buildRBLayout(treeRef.root,treeRef.getNIL());
-    else if(selectedTree==='splay')layout=buildSplayLayout(treeRef.root);
-    else layout=buildTwoFourLayout(treeRef.root);
+  if (isCapped) {
+    const notice = document.createElement('div');
+    notice.style.cssText = 'font-size:9px;color:#a1a1aa;margin-bottom:8px';
+    notice.textContent = `Showing first ${diagN} of ${configN} keys — scroll to zoom, drag to pan.`;
+    content.appendChild(notice);
   }
 
-  if(layout.tooLarge){
-    content.innerHTML=`<div class="too-large-msg"><p>Tree too large (${configN} keys). Showing capped at ${MAX_NODES} nodes.</p></div>`;
-    // Still try to show capped version
-    const diagKeys=generateKeys(MAX_NODES,benchResult.config.pattern,benchResult.config.customData);
-    const t=makeTree(selectedTree);
-    for(const k of diagKeys)t.insert(k);
-    let l2;
-    if(selectedTree==='avl')l2=buildAVLLayout(t.root);
-    else if(selectedTree==='redblack')l2=buildRBLayout(t.root,t.getNIL());
-    else if(selectedTree==='splay')l2=buildSplayLayout(t.root);
-    else l2=buildTwoFourLayout(t.root);
-    if(l2.nodes.length){
-      const wrap=document.createElement('div');wrap.className='tree-svg-wrap';wrap.style.marginTop='8px';
-      const svgEl=document.createElementNS('http://www.w3.org/2000/svg','svg');svgEl.id='tree-svg';wrap.appendChild(svgEl);content.appendChild(wrap);
-      drawLayout(svgEl,l2);
-      container.querySelector('#export-tree').onclick=()=>downloadSVGAsPNG(svgEl,`tree-diagram-${selectedTree}.png`);
-    }
-    return;
-  }
-
-  if(!layout.nodes.length){
-    content.innerHTML='<div class="too-large-msg"><p>Empty tree.</p></div>';
-    return;
-  }
-
-  const wrap=document.createElement('div');wrap.className='tree-svg-wrap';
-  const svgEl=document.createElementNS('http://www.w3.org/2000/svg','svg');svgEl.id='tree-svg';wrap.appendChild(svgEl);content.appendChild(wrap);
-  drawLayout(svgEl,layout);
-  container.querySelector('#export-tree').onclick=()=>downloadSVGAsPNG(svgEl,`tree-diagram-${selectedTree}.png`);
+  const wrap = document.createElement('div'); wrap.className = 'tree-svg-wrap';
+  const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svgEl.id = 'tree-svg'; wrap.appendChild(svgEl); content.appendChild(wrap);
+  drawLayout(svgEl, layout);
+  container.querySelector('#export-tree').onclick = () =>
+    downloadSVGAsPNG(svgEl, `tree-diagram-${selectedTree}.png`);
 }
 
 // ─────────────────────────────────────────────
@@ -1348,7 +940,7 @@ function renderHeatmap(container, benchResult){
     const config=benchResult.config;
     const baseN=Math.min(config.n,500);
     let keys=config.customData&&config.customData.length>0?config.customData.slice(0,baseN):Array.from({length:baseN},(_,i)=>i+1);
-    keys=shuffle([...keys]);
+    keys=generateKeys(baseN, 'uniform'); // shuffle via generateKeys
     const tree=new SplayTree();
     for(const k of keys)tree.insert(k);
     const n2=Math.min(config.n,3000);
