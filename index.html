@@ -284,6 +284,117 @@
     border: 1px dashed #d4d4d8;
   }
 
+  /* ── SIDEBAR SECTION HEADERS ── */
+  .section-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #a1a1aa;
+    font-weight: 600;
+    padding: 0 0 6px 0;
+    border-bottom: 1px solid #f4f4f5;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .option-desc {
+    font-size: 9px;
+    color: #a1a1aa;
+    margin-left: 22px;
+    margin-top: 1px;
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .option-item-wrap { display: flex; flex-direction: column; }
+
+  /* callout box */
+  .callout {
+    border: 1px solid #e4e4e7;
+    background: #f4f4f5;
+    padding: 9px 11px;
+    font-size: 9px;
+    color: #52525b;
+    line-height: 1.55;
+    margin-top: 8px;
+  }
+  .callout strong { color: #18181b; font-weight: 600; }
+  .callout-title {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #71717a;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  /* ── INSERTION LOG TABLE ── */
+  .log-wrap {
+    overflow: auto;
+    max-height: 480px;
+    border: 1px solid #e4e4e7;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .log-table thead tr {
+    background: #f4f4f5;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .log-table th {
+    padding: 7px 12px;
+    text-align: left;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #71717a;
+    font-weight: 600;
+    border-bottom: 1px solid #e4e4e7;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  .log-table th:hover { color: #18181b; }
+  .log-table th .sort-arrow { margin-left: 3px; color: #a1a1aa; }
+  .log-table th.sort-asc .sort-arrow::after { content: ' ↑'; }
+  .log-table th.sort-desc .sort-arrow::after { content: ' ↓'; }
+  .log-table td {
+    padding: 5px 12px;
+    border-bottom: 1px solid #f4f4f5;
+    color: #3f3f46;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table tr:hover td { background: #fafafa; }
+  .log-table td.key-cell { font-weight: 600; color: #18181b; }
+  .log-table td.tree-cell { color: #52525b; }
+  .log-note {
+    font-size: 9px;
+    color: #a1a1aa;
+    margin-top: 8px;
+  }
+  .log-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .log-filter {
+    border: 1px solid #e4e4e7;
+    background: #f4f4f5;
+    color: #18181b;
+    padding: 5px 9px;
+    font-family: inherit;
+    font-size: 11px;
+    outline: none;
+  }
+  .log-filter:focus { border-color: #a1a1aa; }
+
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; padding: 16px; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
@@ -307,79 +418,125 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
 
-    <!-- N -->
+    <!-- Dataset size -->
     <div class="panel">
+      <span class="section-head">Dataset Size</span>
       <div class="slider-row">
-        <span class="panel-label" style="margin-bottom:0">Keys (N)</span>
+        <span style="font-size:11px;color:#52525b">Keys (N)</span>
         <span class="slider-val" id="n-display">2000</span>
       </div>
       <input type="range" id="n-slider" min="100" max="100000" step="100" value="2000">
       <div class="slider-bounds"><span>100</span><span>100k</span></div>
+      <div style="font-size:9px;color:#a1a1aa;margin-top:6px">
+        Total number of keys generated and operated on. Larger N takes longer but reveals asymptotic behaviour more clearly.
+      </div>
     </div>
 
     <!-- Access Pattern -->
     <div class="panel">
-      <span class="panel-label">Access Pattern</span>
+      <span class="section-head">Access Pattern</span>
+      <div style="font-size:9px;color:#71717a;margin-bottom:10px">
+        Controls <em>which</em> keys are chosen at each step. Affects how realistically each tree's structure mirrors real-world workloads.
+      </div>
       <div class="option-list">
-        <label class="option-item">
-          <input type="radio" name="pattern" value="uniform" checked> Uniform
-        </label>
-        <label class="option-item">
-          <input type="radio" name="pattern" value="sequential"> Sequential
-        </label>
-        <label class="option-item">
-          <input type="radio" name="pattern" value="skewed"> Skewed / Zipf
-        </label>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="pattern" value="uniform" checked> Uniform Random
+          </label>
+          <div class="option-desc">Each key is drawn uniformly from [1…N]. No hot spots. Baseline distribution — tests average-case behaviour.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="pattern" value="sequential"> Sequential
+          </label>
+          <div class="option-desc">Keys inserted as 1, 2, 3 … N in order. Worst case for naïve BSTs; shows how AVL/RB prevent O(n) degeneration.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="pattern" value="skewed"> Skewed / Zipf
+          </label>
+          <div class="option-desc">80 % of operations target the hottest 20 % of keys (Pareto / 80-20 rule). Favours Splay, which self-organises toward frequently accessed nodes.</div>
+        </div>
       </div>
     </div>
 
     <!-- Operation -->
     <div class="panel">
-      <span class="panel-label">Operation</span>
+      <span class="section-head">Operation Under Test</span>
+      <div style="font-size:9px;color:#71717a;margin-bottom:10px">
+        The single operation type that is timed and counted. Each option benchmarks a <em>full batch</em> of N operations of that type — not just one.
+      </div>
       <div class="option-list">
-        <label class="option-item">
-          <input type="radio" name="operation" value="insert" checked> Insert
-        </label>
-        <label class="option-item">
-          <input type="radio" name="operation" value="lookup"> Lookup
-        </label>
-        <label class="option-item">
-          <input type="radio" name="operation" value="delete"> Delete
-        </label>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="operation" value="insert" checked> Insert
+          </label>
+          <div class="option-desc">Inserts all N keys into an empty tree. Measures raw build time and shows how the tree balances as it grows.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="operation" value="lookup"> Lookup
+          </label>
+          <div class="option-desc">Searches for each of the N keys in a pre-built tree (all N keys are inserted first, then N searches are timed). Tests read-path performance.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="radio" name="operation" value="delete"> Delete
+          </label>
+          <div class="option-desc">Deletes each of the N keys from a pre-built tree (all N inserted first, then N deletions are timed). Tests restructuring cost on removal.</div>
+        </div>
+      </div>
+      <div class="callout">
+        <span class="callout-title">Note — Lookup &amp; Delete pre-build</span>
+        For <strong>Lookup</strong> and <strong>Delete</strong>, the tree is fully populated with all N keys <em>before</em> timing starts. Only the timed operation phase (N searches or N deletions) is measured — not the initial insert phase.
       </div>
     </div>
 
     <!-- Trees -->
     <div class="panel">
-      <span class="panel-label">Trees</span>
+      <span class="section-head">Trees to Include</span>
       <div class="option-list">
-        <label class="option-item">
-          <input type="checkbox" id="cb-avl" checked>
-          <span class="dot" style="background:#2563eb"></span>
-          AVL
-        </label>
-        <label class="option-item">
-          <input type="checkbox" id="cb-redblack" checked>
-          <span class="dot" style="background:#dc2626"></span>
-          Red-Black
-        </label>
-        <label class="option-item">
-          <input type="checkbox" id="cb-splay" checked>
-          <span class="dot" style="background:#16a34a"></span>
-          Splay
-        </label>
-        <label class="option-item">
-          <input type="checkbox" id="cb-twofour" checked>
-          <span class="dot" style="background:#d97706"></span>
-          2-4 Tree
-        </label>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-avl" checked>
+            <span class="dot" style="background:#2563eb"></span>
+            AVL Tree
+          </label>
+          <div class="option-desc">Height-balanced BST. Strictly keeps |balance factor| ≤ 1 via rotations. Guaranteed O(log n) for all ops. Taller upper bound ~1.44 log₂n.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-redblack" checked>
+            <span class="dot" style="background:#dc2626"></span>
+            Red-Black Tree
+          </label>
+          <div class="option-desc">Color-bit per node; enforces black-height invariant. Fewer rotations than AVL on insert/delete. Used in std::map, Java TreeMap, Linux kernel.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-splay" checked>
+            <span class="dot" style="background:#16a34a"></span>
+            Splay Tree
+          </label>
+          <div class="option-desc">No balance field — accessed node is rotated to root (zig/zig-zig/zig-zag). Amortized O(log n). Naturally caches hot keys near root.</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-twofour" checked>
+            <span class="dot" style="background:#d97706"></span>
+            2-4 Tree
+          </label>
+          <div class="option-desc">B-tree of order 4. Each node holds 1–3 keys and 2–4 children. Perfectly balanced by height. Splits on overflow, merges/borrows on underflow.</div>
+        </div>
       </div>
     </div>
 
     <!-- Custom Data -->
     <div class="panel">
-      <span class="panel-label">Custom Data (optional)</span>
-      <span class="panel-note">Space/comma-separated numbers. Overrides access pattern.</span>
+      <span class="section-head">Custom Data (optional)</span>
+      <div style="font-size:9px;color:#71717a;margin-bottom:6px">
+        Provide your own key sequence. Bypasses the access-pattern generator — your exact integers are used in insertion order. Useful for studying a specific dataset.
+      </div>
       <textarea id="custom-input" rows="3" placeholder="e.g. 5 3 8 1 9 2 7 4 6"></textarea>
       <div class="custom-count" id="custom-count"></div>
     </div>
@@ -419,6 +576,7 @@
           <button class="tab-btn" data-tab="line">Ops/ms vs N</button>
           <button class="tab-btn" data-tab="tree">Tree Diagram</button>
           <button class="tab-btn" data-tab="heatmap">Splay Heatmap</button>
+          <button class="tab-btn" data-tab="log">Insertion Log</button>
         </div>
 
         <div class="chart-panel" id="chart-panel">
@@ -829,6 +987,35 @@ function runSweep(nValues,pattern,operation,trees){
 }
 
 // ─────────────────────────────────────────────
+// INSERTION LOG
+// Cap at 500 rows to keep the table readable.
+// Records: step #, key inserted, and the resulting
+// height of each enabled tree after that insert.
+// ─────────────────────────────────────────────
+const LOG_CAP = 500;
+
+function buildInsertionLog(config) {
+  const { n, pattern, trees: treeTypes, customData } = config;
+  const keys = generateKeys(n, pattern, customData);
+  const cap = Math.min(keys.length, LOG_CAP);
+
+  // Build one tree instance per type — we walk them in lock-step
+  const instances = treeTypes.map(t => ({ type: t, tree: makeTree(t) }));
+  const rows = [];
+
+  for (let i = 0; i < cap; i++) {
+    const key = keys[i];
+    const heights = {};
+    for (const inst of instances) {
+      inst.tree.insert(key);
+      heights[inst.type] = inst.tree.height();
+    }
+    rows.push({ step: i + 1, key, heights });
+  }
+  return { rows, treeTypes, keys: keys.slice(0, cap), totalN: keys.length };
+}
+
+// ─────────────────────────────────────────────
 // EXPORT HELPERS
 // ─────────────────────────────────────────────
 function downloadCanvasAsPNG(canvas, filename){
@@ -1213,6 +1400,131 @@ function renderHeatmap(container, benchResult){
 }
 
 // ─────────────────────────────────────────────
+// CHART: INSERTION LOG TABLE
+// ─────────────────────────────────────────────
+function renderInsertionLog(container, benchResult) {
+  const config = benchResult.config;
+  const logData = buildInsertionLog(config);
+  const { rows, treeTypes, totalN } = logData;
+  const isCapped = totalN > LOG_CAP;
+
+  let sortCol = 'step';
+  let sortDir = 'asc';
+  let filterVal = '';
+
+  function sortedRows() {
+    let r = [...rows];
+    if (filterVal) {
+      const q = filterVal.toLowerCase();
+      r = r.filter(row =>
+        String(row.step).includes(q) ||
+        String(row.key).includes(q) ||
+        treeTypes.some(t => String(row.heights[t]).includes(q))
+      );
+    }
+    r.sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'step') { va = a.step; vb = b.step; }
+      else if (sortCol === 'key') { va = a.key; vb = b.key; }
+      else { va = a.heights[sortCol] ?? 0; vb = b.heights[sortCol] ?? 0; }
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+    return r;
+  }
+
+  function headerArrow(col) {
+    if (sortCol !== col) return '<span class="sort-arrow"></span>';
+    return `<span class="sort-arrow"></span>`;
+  }
+
+  function thClass(col) {
+    return sortCol === col ? `sort-${sortDir}` : '';
+  }
+
+  function buildTable() {
+    const displayed = sortedRows();
+    const treeHeadCols = treeTypes.map(t =>
+      `<th class="${thClass(t)}" data-col="${t}" title="Height of ${TREE_LABELS[t]} after this insert">
+        <span style="display:inline-flex;align-items:center;gap:4px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${TREE_COLORS[t]};display:inline-block;flex-shrink:0"></span>
+          ${TREE_LABELS[t]} h<span class="sort-arrow"></span>
+        </span>
+      </th>`
+    ).join('');
+
+    const bodyRows = displayed.map((row, idx) => {
+      const bg = idx % 2 === 0 ? '' : ' style="background:#fafafa"';
+      const treeCells = treeTypes.map(t =>
+        `<td class="tree-cell" style="color:${TREE_COLORS[t]};font-weight:600">${row.heights[t] ?? '—'}</td>`
+      ).join('');
+      return `<tr${bg}><td class="key-cell">${row.step}</td><td class="key-cell">${row.key}</td>${treeCells}</tr>`;
+    }).join('');
+
+    return `
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th class="${thClass('step')}" data-col="step" title="Insertion order (1-indexed)">#<span class="sort-arrow"></span></th>
+            <th class="${thClass('key')}" data-col="key" title="The integer key inserted at this step">Key<span class="sort-arrow"></span></th>
+            ${treeHeadCols}
+          </tr>
+        </thead>
+        <tbody>${bodyRows || '<tr><td colspan="99" style="padding:16px;color:#a1a1aa;text-align:center">No matching rows</td></tr>'}</tbody>
+      </table>`;
+  }
+
+  function render() {
+    const tableWrap = container.querySelector('#log-table-wrap');
+    if (tableWrap) tableWrap.innerHTML = buildTable();
+    container.querySelectorAll('.log-table th[data-col]').forEach(th => {
+      th.onclick = () => {
+        const col = th.dataset.col;
+        if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+        else { sortCol = col; sortDir = col === 'key' ? 'asc' : 'asc'; }
+        render();
+      };
+    });
+  }
+
+  const opLabel = { insert: 'Insert', lookup: 'Lookup (pre-built)', delete: 'Delete (pre-built)' }[config.operation] || config.operation;
+  const patternLabel = { uniform: 'Uniform Random', sequential: 'Sequential', skewed: 'Skewed / Zipf' }[config.pattern] || config.pattern;
+
+  container.innerHTML = `
+    <div class="chart-header" style="align-items:flex-start">
+      <div>
+        <div class="chart-title">Insertion Log — step-by-step key sequence</div>
+        <div class="chart-subtitle" style="margin-top:3px">
+          Shows each key as it was inserted and the resulting height of every active tree at that point.
+          ${isCapped ? `<span style="color:#d97706">Capped at first ${LOG_CAP} of ${totalN} keys.</span>` : `${rows.length} rows total.`}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:#71717a;background:#f4f4f5;border:1px solid #e4e4e7;padding:8px 11px;margin-bottom:12px;line-height:1.55">
+      <strong style="color:#18181b">Operation:</strong> ${opLabel} &nbsp;·&nbsp;
+      <strong style="color:#18181b">Pattern:</strong> ${patternLabel} &nbsp;·&nbsp;
+      <strong style="color:#18181b">N:</strong> ${totalN.toLocaleString()}
+      ${config.customData ? `&nbsp;·&nbsp;<strong style="color:#18181b">Custom data</strong> (${config.customData.length} keys provided)` : ''}
+      <br>
+      <span style="color:#a1a1aa">The heights shown are <em>post-insert</em> — what the tree looks like after each key lands. Tree heights grow logarithmically for balanced trees and can spike for Splay during sequential inserts.</span>
+    </div>
+    <div class="log-controls">
+      <input class="log-filter" id="log-filter" type="text" placeholder="Filter by step, key, or height…" style="min-width:220px">
+      <span style="font-size:9px;color:#a1a1aa">Click column headers to sort ↑↓</span>
+    </div>
+    <div class="log-wrap" id="log-table-wrap"></div>
+    <div class="log-note">
+      Heights are measured after every single insert. For <strong>Lookup</strong> and <strong>Delete</strong> benchmarks the tree is re-built from scratch here using the same key sequence, so heights reflect an insert-only run.
+    </div>`;
+
+  render();
+
+  container.querySelector('#log-filter').addEventListener('input', e => {
+    filterVal = e.target.value.trim();
+    render();
+  });
+}
+
+// ─────────────────────────────────────────────
 // APP STATE
 // ─────────────────────────────────────────────
 let appState = {
@@ -1260,6 +1572,7 @@ function renderActiveTab(){
     case 'line': if(sweepPoints)renderLineChart(panel,sweepPoints,enabledTrees); break;
     case 'tree': renderTreeDiagram(panel,benchResult,selectedTree,enabledTrees); break;
     case 'heatmap': renderHeatmap(panel,benchResult); break;
+    case 'log': renderInsertionLog(panel,benchResult); break;
   }
 }
 
