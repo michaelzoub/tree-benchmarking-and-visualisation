@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tree Benchmarker</title>
+  <title>Tree Benchmarker &amp; Visualizer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="trees/avl.js"></script>
 <script src="trees/redblack.js"></script>
 <script src="trees/splay.js"></script>
 <script src="trees/twofour.js"></script>
+<script src="trees/treap.js"></script>
+<script src="trees/aatree.js"></script>
 <script src="trees/benchmark.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -166,7 +168,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* summary cards */
-  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
   .summary-card {
     border: 1px solid #e4e4e7;
     background: #fff;
@@ -400,6 +402,138 @@
   }
   .log-filter:focus { border-color: #a1a1aa; }
 
+  /* ── LIVE INSERT PANEL ── */
+  .live-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .live-input {
+    border: 1px solid #e4e4e7;
+    background: #f4f4f5;
+    color: #18181b;
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    width: 90px;
+    transition: border-color 0.15s;
+  }
+  .live-input:focus { border-color: #a1a1aa; }
+  .btn-live {
+    border: 1px solid #18181b;
+    background: #18181b;
+    color: #fff;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-live:hover:not(:disabled) { background: #27272a; }
+  .btn-live:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-live-secondary {
+    border: 1px solid #d4d4d8;
+    background: #fff;
+    color: #52525b;
+    padding: 6px 14px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-live-secondary:hover { border-color: #71717a; color: #18181b; }
+  .live-speed-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #52525b;
+  }
+  .live-speed-row input[type=range] { width: 80px; accent-color: #18181b; }
+  .live-tree-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .live-tree-tab {
+    border: 1px solid #d4d4d8;
+    background: #fff;
+    color: #71717a;
+    padding: 3px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .live-tree-tab.active { border-color: #18181b; background: #18181b; color: #fff; }
+  .live-tree-tab:hover:not(.active) { border-color: #71717a; }
+  .live-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 10px;
+    color: #71717a;
+    background: #f4f4f5;
+    border: 1px solid #e4e4e7;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .live-status-item strong { color: #18181b; }
+  .live-key-history {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    max-height: 56px;
+    overflow: hidden;
+  }
+  .live-key-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-family: monospace;
+    border-radius: 2px;
+    background: #e4e4e7;
+    color: #3f3f46;
+    border: 1px solid #d4d4d8;
+    transition: background 0.3s, color 0.3s;
+  }
+  .live-key-badge.new {
+    background: #18181b;
+    color: #fff;
+    border-color: #18181b;
+  }
+  .live-svg-area {
+    position: relative;
+  }
+  /* Animated node pulse */
+  @keyframes node-appear {
+    0%   { r: 0; opacity: 0; }
+    60%  { r: 18px; opacity: 1; }
+    100% { r: 14px; opacity: 1; }
+  }
+  @keyframes node-appear-rect {
+    0%   { transform: scale(0); opacity: 0; }
+    60%  { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .live-new-node { animation: node-appear 0.35s ease-out forwards; }
+
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; padding: 16px; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
@@ -411,10 +545,10 @@
 <header class="header">
   <div class="header-inner">
     <div style="display:flex;align-items:baseline;gap:0">
-      <span class="header-title">Tree Benchmarker</span>
-      <span class="header-sub">AVL · Red-Black · Splay · 2-4</span>
+      <span class="header-title">Tree Benchmarker &amp; Visualizer</span>
+      <span class="header-sub">AVL · Red-Black · Splay · 2-4 · Treap · AA</span>
     </div>
-    <div class="header-desc">Interactive benchmarking &amp; visualization — all client-side</div>
+    <div class="header-desc">Interactive benchmarking, live animated insertion &amp; visualization — all client-side</div>
   </div>
 </header>
 
@@ -533,6 +667,22 @@
           </label>
           <div class="option-desc">B-tree of order 4. Each node holds 1–3 keys and 2–4 children. Perfectly balanced by height. Splits on overflow, merges/borrows on underflow.</div>
         </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-treap" checked>
+            <span class="dot" style="background:#7c3aed"></span>
+            Treap
+          </label>
+          <div class="option-desc">Randomized BST. Each node carries a random priority forming a max-heap. No explicit balancing — random priorities keep expected height O(log n).</div>
+        </div>
+        <div class="option-item-wrap">
+          <label class="option-item">
+            <input type="checkbox" id="cb-aatree" checked>
+            <span class="dot" style="background:#0891b2"></span>
+            AA Tree
+          </label>
+          <div class="option-desc">Simplified Red-Black variant (Arne Andersson, 1993). Red links only on right spine; skew + split rebalancing. Cleaner invariants than RB with similar performance.</div>
+        </div>
       </div>
     </div>
 
@@ -582,6 +732,7 @@
           <button class="tab-btn" data-tab="tree">Tree Diagram</button>
           <button class="tab-btn" data-tab="heatmap">Splay Heatmap</button>
           <button class="tab-btn" data-tab="log">Insertion Log</button>
+          <button class="tab-btn" data-tab="live">Live Insert</button>
         </div>
 
         <div class="chart-panel" id="chart-panel">
@@ -598,8 +749,8 @@
 // TREE COLORS / LABELS
 // (Tree classes + benchmark functions loaded from trees/*.js)
 // ─────────────────────────────────────────────
-const TREE_COLORS = { avl: '#2563eb', redblack: '#dc2626', splay: '#16a34a', twofour: '#d97706' };
-const TREE_LABELS = { avl: 'AVL', redblack: 'Red-Black', splay: 'Splay', twofour: '2-4 Tree' };
+const TREE_COLORS = { avl: '#2563eb', redblack: '#dc2626', splay: '#16a34a', twofour: '#d97706', treap: '#7c3aed', aatree: '#0891b2' };
+const TREE_LABELS = { avl: 'AVL', redblack: 'Red-Black', splay: 'Splay', twofour: '2-4 Tree', treap: 'Treap', aatree: 'AA Tree' };
 
 // ─────────────────────────────────────────────
 // INSERTION LOG
@@ -818,8 +969,36 @@ function buildTwoFourLayout(root){
   layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
   return{nodes,edges,size:nodes.length};
 }
+function buildTreapLayout(root){
+  if(!root)return{nodes:[],edges:[],size:0};
+  const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
+  const layout=d3.tree().nodeSize([36,60])(h);
+  const nodes=[],edges=[];
+  layout.each(d=>{
+    // Use priority shade: higher priority = brighter purple
+    const p=d.data.priority??0.5;
+    const alpha=0.4+p*0.6;
+    const baseHex=TREE_COLORS.treap;
+    nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:baseHex,textColor:'#fff',shape:'circle',opacity:alpha,priorityLabel:`p=${d.data.priority!=null?d.data.priority.toFixed(2):'?'}`});
+  });
+  layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
+  return{nodes,edges,size:nodes.length};
+}
+function buildAALayout(root){
+  if(!root)return{nodes:[],edges:[],size:0};
+  const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
+  const layout=d3.tree().nodeSize([30,56])(h);
+  const nodes=[],edges=[];
+  layout.each(d=>{
+    // Color by level: level 1 = dark, higher = lighter shade
+    const lvl=d.data.level??1;
+    nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:TREE_COLORS.aatree,textColor:'#fff',shape:'circle',level:lvl});
+  });
+  layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y,sameLevel:l.source.data.level===l.target.data.level}));
+  return{nodes,edges,size:nodes.length};
+}
 
-function drawLayout(svgEl, layout){
+function drawLayout(svgEl, layout, newKey){
   const{nodes,edges}=layout;
   if(!nodes.length)return;
   const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);
@@ -828,16 +1007,36 @@ function drawLayout(svgEl, layout){
   const offX=-minX+pad,offY=-minY+pad;
   d3.select(svgEl).selectAll('*').remove();
   svgEl.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  svgEl.setAttribute('height',String(Math.min(H,500)));
+  svgEl.setAttribute('height',String(Math.min(H,600)));
   const g=d3.select(svgEl).append('g');
-  for(const e of edges){g.append('line').attr('x1',e.x1+offX).attr('y1',e.y1+offY).attr('x2',e.x2+offX).attr('y2',e.y2+offY).attr('stroke','#d4d4d8').attr('stroke-width',1);}
+  for(const e of edges){
+    g.append('line')
+      .attr('x1',e.x1+offX).attr('y1',e.y1+offY)
+      .attr('x2',e.x2+offX).attr('y2',e.y2+offY)
+      .attr('stroke', e.sameLevel ? '#38bdf8' : '#d4d4d8')
+      .attr('stroke-width', e.sameLevel ? 2 : 1)
+      .attr('stroke-dasharray', e.sameLevel ? '4,2' : null);
+  }
   for(const n of nodes){
+    const isNew = newKey !== undefined && String(n.id) === String(newKey);
     if(n.shape==='circle'){
-      g.append('circle').attr('cx',n.x+offX).attr('cy',n.y+offY).attr('r',14).attr('fill',n.color).attr('stroke','#fff').attr('stroke-width',1.5);
+      const circ = g.append('circle')
+        .attr('cx',n.x+offX).attr('cy',n.y+offY).attr('r',14)
+        .attr('fill',n.color)
+        .attr('fill-opacity', n.opacity ?? 1)
+        .attr('stroke', isNew ? '#fbbf24' : '#fff')
+        .attr('stroke-width', isNew ? 3 : 1.5);
+      if(isNew) circ.attr('class','live-new-node');
       g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4).attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px').attr('fill',n.textColor).text(n.label.length>5?n.label.slice(0,4)+'…':n.label);
     } else {
       const rw=(n.width??50)/2,rh=(n.height??22)/2;
-      g.append('rect').attr('x',n.x+offX-rw).attr('y',n.y+offY-rh).attr('width',n.width??50).attr('height',n.height??22).attr('rx',3).attr('fill',n.color).attr('stroke','#fff').attr('stroke-width',1.5);
+      const rect = g.append('rect')
+        .attr('x',n.x+offX-rw).attr('y',n.y+offY-rh)
+        .attr('width',n.width??50).attr('height',n.height??22)
+        .attr('rx',3).attr('fill',n.color)
+        .attr('stroke', isNew ? '#fbbf24' : '#fff')
+        .attr('stroke-width', isNew ? 3 : 1.5);
+      if(isNew) rect.attr('class','live-new-node');
       g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4).attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px').attr('fill',n.textColor).text(n.label);
     }
   }
@@ -852,6 +1051,10 @@ function renderTreeDiagram(container, benchResult, selectedTree, enabledTrees){
     ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED node</span><span class="legend-item"><span class="legend-dot" style="background:#18181b"></span>BLACK node</span></div>`
     : selectedTree==='splay'
     ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span></div>`
+    : selectedTree==='treap'
+    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#7c3aed;opacity:0.4"></span>Low priority</span><span class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span>High priority</span><span style="font-size:9px;color:#a1a1aa">Node opacity reflects random heap priority</span></div>`
+    : selectedTree==='aatree'
+    ? `<div class="legend-row"><span class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#38bdf8;border-top:2px dashed #38bdf8;margin-right:4px"></span>Horizontal link (same level)</span></div>`
     : '';
 
   container.innerHTML=`
@@ -887,10 +1090,12 @@ function renderTreeDiagram(container, benchResult, selectedTree, enabledTrees){
   for (const k of diagKeys) t.insert(k);
 
   let layout;
-  if (selectedTree === 'avl')      layout = buildAVLLayout(t.root);
+  if (selectedTree === 'avl')           layout = buildAVLLayout(t.root);
   else if (selectedTree === 'redblack') layout = buildRBLayout(t.root, t.getNIL());
-  else if (selectedTree === 'splay')   layout = buildSplayLayout(t.root);
-  else                                 layout = buildTwoFourLayout(t.root);
+  else if (selectedTree === 'splay')    layout = buildSplayLayout(t.root);
+  else if (selectedTree === 'treap')    layout = buildTreapLayout(t.root);
+  else if (selectedTree === 'aatree')   layout = buildAALayout(t.root);
+  else                                  layout = buildTwoFourLayout(t.root);
 
   if (!layout.nodes.length) {
     content.innerHTML = '<div class="too-large-msg"><p>Empty tree.</p></div>';
@@ -1117,6 +1322,233 @@ function renderInsertionLog(container, benchResult) {
 }
 
 // ─────────────────────────────────────────────
+// LIVE INSERT — animated step-by-step insertion
+// ─────────────────────────────────────────────
+
+const liveState = {
+  trees: {},          // type → tree instance
+  insertedKeys: [],
+  selectedType: 'avl',
+  animTimer: null,
+  isPlaying: false,
+  autoQueue: [],      // keys queued for auto-play
+  speedMs: 600,       // ms between auto inserts
+};
+
+function _liveGetLayout(type) {
+  const t = liveState.trees[type];
+  if (!t) return { nodes: [], edges: [], size: 0 };
+  if (type === 'avl')      return buildAVLLayout(t.root);
+  if (type === 'redblack') return buildRBLayout(t.root, t.getNIL());
+  if (type === 'splay')    return buildSplayLayout(t.root);
+  if (type === 'twofour')  return buildTwoFourLayout(t.root);
+  if (type === 'treap')    return buildTreapLayout(t.root);
+  if (type === 'aatree')   return buildAALayout(t.root);
+  return { nodes: [], edges: [], size: 0 };
+}
+
+function _liveRedrawSVG(newKey) {
+  const svgEl = document.getElementById('live-tree-svg');
+  if (!svgEl) return;
+  const layout = _liveGetLayout(liveState.selectedType);
+  if (!layout.nodes.length) {
+    d3.select(svgEl).selectAll('*').remove();
+    svgEl.setAttribute('viewBox','0 0 400 200');
+    svgEl.setAttribute('height','200');
+    d3.select(svgEl).append('text').attr('x',200).attr('y',100)
+      .attr('text-anchor','middle').style('font-family','monospace')
+      .style('font-size','12px').attr('fill','#a1a1aa').text('Empty — insert a key to begin');
+    return;
+  }
+  drawLayout(svgEl, layout, newKey !== undefined ? String(newKey) : undefined);
+}
+
+function _liveUpdateStatus() {
+  const bar = document.getElementById('live-status-bar');
+  if (!bar) return;
+  const type = liveState.selectedType;
+  const t = liveState.trees[type];
+  const h = t ? t.height() : 0;
+  const sz = t ? t.size() : 0;
+  bar.innerHTML = `
+    <span class="live-status-item"><strong>Tree:</strong> ${TREE_LABELS[type]||type}</span>
+    <span class="live-status-item"><strong>Nodes:</strong> ${sz}</span>
+    <span class="live-status-item"><strong>Height:</strong> ${h}</span>
+    <span class="live-status-item"><strong>Keys inserted:</strong> ${liveState.insertedKeys.length}</span>`;
+}
+
+function _liveUpdateBadges(newKey) {
+  const wrap = document.getElementById('live-key-badges');
+  if (!wrap) return;
+  const keys = liveState.insertedKeys.slice(-30);
+  wrap.innerHTML = keys.map((k,i) =>
+    `<span class="live-key-badge${i===keys.length-1&&newKey!==undefined?' new':''}">${k}</span>`
+  ).join('');
+}
+
+function _liveInsertKey(key) {
+  for (const type of Object.keys(liveState.trees)) {
+    liveState.trees[type].insert(key);
+  }
+  liveState.insertedKeys.push(key);
+  _liveRedrawSVG(key);
+  _liveUpdateStatus();
+  _liveUpdateBadges(key);
+  setTimeout(() => {
+    const badge = document.querySelector('.live-key-badge.new');
+    if (badge) badge.classList.remove('new');
+  }, 600);
+}
+
+function _liveStopAuto() {
+  if (liveState.animTimer) { clearTimeout(liveState.animTimer); liveState.animTimer = null; }
+  liveState.isPlaying = false;
+  liveState.autoQueue = [];
+  const btn = document.getElementById('live-btn-play');
+  if (btn) { btn.textContent = 'Auto-Play'; btn.disabled = false; }
+  const btnStep = document.getElementById('live-btn-step');
+  if (btnStep) btnStep.disabled = false;
+}
+
+function _liveAutoStep() {
+  if (!liveState.isPlaying || !liveState.autoQueue.length) {
+    _liveStopAuto();
+    return;
+  }
+  const key = liveState.autoQueue.shift();
+  _liveInsertKey(key);
+  liveState.animTimer = setTimeout(_liveAutoStep, liveState.speedMs);
+}
+
+function renderLiveInsert(container, enabledTrees) {
+  const enabledList = Object.keys(enabledTrees).filter(t => enabledTrees[t]);
+  if (!enabledList.length) {
+    container.innerHTML = '<div style="padding:24px;color:#a1a1aa;font-size:12px">Enable at least one tree in the sidebar, then run a benchmark first.</div>';
+    return;
+  }
+
+  // Initialize trees lazily — preserve state if re-rendering same tree set
+  const existingTypes = new Set(Object.keys(liveState.trees));
+  for (const t of enabledList) {
+    if (!existingTypes.has(t)) liveState.trees[t] = makeTree(t);
+  }
+  for (const t of [...existingTypes]) {
+    if (!enabledList.includes(t)) delete liveState.trees[t];
+  }
+  if (!liveState.trees[liveState.selectedType]) {
+    liveState.selectedType = enabledList[0];
+  }
+
+  const tabHtml = enabledList.map(t =>
+    `<button class="live-tree-tab${t===liveState.selectedType?' active':''}" data-livetype="${t}">${TREE_LABELS[t]||t}</button>`
+  ).join('');
+
+  const legendHtml = liveState.selectedType==='redblack'
+    ? `<div class="legend-row" style="margin-bottom:6px"><span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED</span><span class="legend-item"><span class="legend-dot" style="background:#18181b"></span>BLACK</span></div>`
+    : liveState.selectedType==='splay'
+    ? `<div class="legend-row" style="margin-bottom:6px"><span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span></div>`
+    : liveState.selectedType==='treap'
+    ? `<div class="legend-row" style="margin-bottom:6px"><span style="font-size:9px;color:#71717a">Node opacity = random priority (higher = more opaque)</span></div>`
+    : liveState.selectedType==='aatree'
+    ? `<div class="legend-row" style="margin-bottom:6px"><span style="font-size:9px;color:#71717a">Dashed blue edge = horizontal link (same level)</span></div>`
+    : '';
+
+  container.innerHTML = `
+    <div class="chart-header" style="margin-bottom:10px">
+      <div>
+        <div class="chart-title">Live Insert — animated node-by-node insertion</div>
+        <div class="chart-subtitle">Insert keys one at a time and watch the tree rebalance in real time.</div>
+      </div>
+    </div>
+
+    <div class="live-controls">
+      <input class="live-input" id="live-key-input" type="number" placeholder="Key (int)" min="-999999" max="999999" step="1">
+      <button class="btn-live" id="live-btn-insert">Insert</button>
+      <button class="btn-live-secondary" id="live-btn-step">Random Step</button>
+      <button class="btn-live" id="live-btn-play" style="background:#16a34a;border-color:#16a34a">Auto-Play</button>
+      <button class="btn-live-secondary" id="live-btn-reset">Reset All Trees</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="live-speed-row">
+        <span>Speed:</span>
+        <input type="range" id="live-speed" min="100" max="2000" step="100" value="${liveState.speedMs}" style="width:100px">
+        <span id="live-speed-label">${liveState.speedMs}ms</span>
+      </div>
+      <div style="font-size:9px;color:#a1a1aa">Auto-Play inserts random keys continuously at chosen speed.</div>
+    </div>
+
+    <div class="live-tree-tabs">${tabHtml}</div>
+    ${legendHtml}
+    <div class="live-status-bar" id="live-status-bar"></div>
+
+    <div style="font-size:9px;color:#71717a;margin-bottom:6px">
+      Recent keys (newest = dark):
+    </div>
+    <div class="live-key-history" id="live-key-badges"></div>
+
+    <div class="live-svg-area tree-svg-wrap">
+      <svg id="live-tree-svg" style="width:100%;display:block"></svg>
+    </div>`;
+
+  // Wire up events
+  container.querySelectorAll('.live-tree-tab').forEach(btn => {
+    btn.onclick = () => {
+      liveState.selectedType = btn.dataset.livetype;
+      renderLiveInsert(container, enabledTrees);
+      _liveRedrawSVG();
+    };
+  });
+
+  document.getElementById('live-btn-insert').onclick = () => {
+    const inp = document.getElementById('live-key-input');
+    const v = parseInt(inp.value, 10);
+    if (isNaN(v)) { inp.focus(); return; }
+    _liveInsertKey(v);
+    inp.value = '';
+    inp.focus();
+  };
+
+  document.getElementById('live-key-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('live-btn-insert').click();
+  });
+
+  document.getElementById('live-btn-step').onclick = () => {
+    const key = Math.floor(Math.random() * 999) + 1;
+    _liveInsertKey(key);
+  };
+
+  document.getElementById('live-btn-play').onclick = () => {
+    if (liveState.isPlaying) { _liveStopAuto(); return; }
+    liveState.isPlaying = true;
+    const btn = document.getElementById('live-btn-play');
+    btn.textContent = 'Stop';
+    document.getElementById('live-btn-step').disabled = true;
+    // Queue 200 random keys
+    liveState.autoQueue = Array.from({length: 200}, () => Math.floor(Math.random() * 9999) + 1);
+    _liveAutoStep();
+  };
+
+  document.getElementById('live-btn-reset').onclick = () => {
+    _liveStopAuto();
+    liveState.insertedKeys = [];
+    for (const t of Object.keys(liveState.trees)) liveState.trees[t] = makeTree(t);
+    _liveUpdateStatus();
+    _liveUpdateBadges();
+    _liveRedrawSVG();
+  };
+
+  document.getElementById('live-speed').oninput = e => {
+    liveState.speedMs = parseInt(e.target.value, 10);
+    document.getElementById('live-speed-label').textContent = `${liveState.speedMs}ms`;
+  };
+
+  _liveUpdateStatus();
+  _liveUpdateBadges();
+  _liveRedrawSVG();
+}
+
+// ─────────────────────────────────────────────
 // APP STATE
 // ─────────────────────────────────────────────
 let appState = {
@@ -1124,7 +1556,7 @@ let appState = {
   sweepPoints: null,
   activeTab: 'bar',
   selectedTree: 'avl',
-  enabledTrees: {avl:true,redblack:true,splay:true,twofour:true},
+  enabledTrees: {avl:true,redblack:true,splay:true,twofour:true,treap:true,aatree:true},
 };
 
 function getConfig(){
@@ -1136,6 +1568,8 @@ function getConfig(){
   if(document.getElementById('cb-redblack').checked)trees.push('redblack');
   if(document.getElementById('cb-splay').checked)trees.push('splay');
   if(document.getElementById('cb-twofour').checked)trees.push('twofour');
+  if(document.getElementById('cb-treap').checked)trees.push('treap');
+  if(document.getElementById('cb-aatree').checked)trees.push('aatree');
   const raw=document.getElementById('custom-input').value.trim();
   const customData=raw?raw.split(/[\s,;]+/).map(s=>parseFloat(s)).filter(n=>!isNaN(n)):undefined;
   return{n,pattern,operation,trees,customData};
@@ -1156,7 +1590,7 @@ function renderSummary(results){
 
 function renderActiveTab(){
   const{benchResult,sweepPoints,activeTab,selectedTree,enabledTrees}=appState;
-  if(!benchResult)return;
+  if(!benchResult && activeTab !== 'live') return;
   const panel=document.getElementById('chart-panel');
   switch(activeTab){
     case 'bar': renderBarChart(panel,benchResult.results); break;
@@ -1165,6 +1599,7 @@ function renderActiveTab(){
     case 'tree': renderTreeDiagram(panel,benchResult,selectedTree,enabledTrees); break;
     case 'heatmap': renderHeatmap(panel,benchResult); break;
     case 'log': renderInsertionLog(panel,benchResult); break;
+    case 'live': renderLiveInsert(panel,enabledTrees); break;
   }
 }
 
@@ -1176,7 +1611,20 @@ function setActiveTab(tab){
 
 // Tab clicks
 document.getElementById('tab-bar').querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.onclick=()=>setActiveTab(btn.dataset.tab);
+  btn.onclick=()=>{
+    const tab=btn.dataset.tab;
+    // Live Insert can be opened without running a benchmark first
+    if(tab==='live'){
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+      appState.activeTab=tab;
+      setVisible('empty-state',false);
+      setVisible('results-area',true);
+      const panel=document.getElementById('chart-panel');
+      renderLiveInsert(panel,appState.enabledTrees);
+      return;
+    }
+    setActiveTab(tab);
+  };
 });
 
 // N slider
@@ -1212,7 +1660,7 @@ document.getElementById('btn-run').addEventListener('click',async()=>{
     const enabledList=config.trees;
     const nSweep=N_SWEEP.filter(v=>v<=Math.max(config.n,5000));
     const sweepPoints=runSweep(nSweep,config.pattern,config.operation,enabledList);
-    const enabledTrees={avl:false,redblack:false,splay:false,twofour:false};
+    const enabledTrees={avl:false,redblack:false,splay:false,twofour:false,treap:false,aatree:false};
     for(const t of enabledList)enabledTrees[t]=true;
     appState={...appState,benchResult,sweepPoints,enabledTrees};
     // Pick first enabled tree for diagram
