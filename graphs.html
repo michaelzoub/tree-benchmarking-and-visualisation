@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DS Lab — Graphs (DFS/BFS Simulation)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      background: #f5f5f4;
+      color: #1c1917;
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar{
+      flex-shrink: 0;
+      background:#fff;
+      border-bottom:1px solid #e7e5e4;
+      padding:0 24px;
+      display:flex;
+      align-items:stretch;
+      height:52px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.04);
+      z-index:10;
+      gap: 16px;
+    }
+    .topbar-brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding-right: 20px;
+      border-right: 1px solid #e7e5e4;
+    }
+    .brand-icon{
+      width:28px; height:28px;
+      background: linear-gradient(135deg, #1c1917 60%, #78716c 100%);
+      border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .brand-icon svg{ width:16px; height:16px; fill:#fff; }
+    .brand-name{ font-size:13px; font-weight:800; letter-spacing:-0.01em; }
+    .brand-sub{ font-size:9px; color:#a8a29e; text-transform:uppercase; letter-spacing:0.1em; margin-top:1px; }
+
+    .course-links{
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .course-link{
+      display:inline-flex; align-items:center; gap:8px;
+      height:30px;
+      padding:0 10px;
+      border-radius:10px;
+      border:1px solid transparent;
+      color:#57534e;
+      text-decoration:none;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      white-space:nowrap;
+    }
+    .course-link:hover{ background:#fafaf9; border-color:#e7e5e4; color:#1c1917; }
+    body[data-page="trees"] .course-link[data-page="trees"],
+    body[data-page="adts"] .course-link[data-page="adts"],
+    body[data-page="graphs"] .course-link[data-page="graphs"]{
+      background:#1c1917; border-color:#1c1917; color:#fff;
+    }
+    .course-pill{ width:7px; height:7px; border-radius:999px; background:currentColor; opacity:0.75; }
+
+    .app{
+      flex:1;
+      display:flex;
+      min-height:0;
+      overflow:hidden;
+    }
+    .sidebar{
+      width: 360px;
+      flex-shrink:0;
+      background:#fff;
+      border-right:1px solid #e7e5e4;
+      overflow:auto;
+      padding: 16px;
+    }
+    .main{
+      flex:1;
+      overflow:auto;
+      padding: 18px 20px;
+      min-width: 0;
+    }
+
+    .sb-title{
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #a8a29e;
+      margin: 8px 0 10px;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .sb-title::after{ content:''; flex:1; height:1px; background:#f5f5f4; }
+    .sb-note{
+      border: 1.5px solid #e7e5e4;
+      background: #fafaf9;
+      padding: 10px 11px;
+      border-radius: 10px;
+      font-size: 10px;
+      color:#57534e;
+    }
+    .sb-note strong{ color:#1c1917; }
+    textarea{
+      width: 100%;
+      border-radius: 12px;
+      border: 1.5px solid #e7e5e4;
+      background: #fff;
+      padding: 10px;
+      font-family: inherit;
+      font-size: 11px;
+      outline:none;
+      resize: vertical;
+      min-height: 110px;
+    }
+    textarea:focus{ border-color:#a8a29e; }
+    input[type="text"], select{
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1.5px solid #e7e5e4;
+      background: #fff;
+      font-family: inherit;
+      outline:none;
+      width: 100%;
+    }
+    input:focus, select:focus{ border-color:#a8a29e; }
+    .row{ display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+    .field{ display:flex; flex-direction: column; gap:6px; min-width: 160px; flex: 1; }
+    label{ font-size: 10px; color:#78716c; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
+    .btn{
+      border:none;
+      background:#1c1917;
+      color:#fff;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      cursor:pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+    .btn:hover{ background:#292524; }
+    .btn:active{ transform: scale(0.98); }
+    .btn.secondary{ background:#fff; color:#1c1917; border:1.5px solid #e7e5e4; }
+    .btn.secondary:hover{ background:#fafaf9; }
+    .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+    .pill{
+      display:inline-flex; align-items:center; gap: 8px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color:#57534e;
+      background:#fafaf9;
+      border:1px solid #e7e5e4;
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+    .dot{ width:7px; height:7px; border-radius: 999px; background: currentColor; opacity: 0.75; }
+
+    .card{
+      background:#fff;
+      border:1px solid #e7e5e4;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      overflow:hidden;
+      margin-bottom: 14px;
+      min-width: 0;
+    }
+    .card-h{
+      padding: 12px 14px;
+      border-bottom:1px solid #f5f5f4;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .card-title{ font-weight: 900; letter-spacing: -0.01em; }
+    .card-sub{ font-size: 11px; color:#78716c; }
+    .card-b{ padding: 14px; min-width: 0; }
+    .muted{ color:#78716c; }
+
+    .split{
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .pane{
+      flex:1;
+      min-width: 320px;
+      min-height: 280px;
+    }
+    .canvas{
+      border: 1.5px dashed #e7e5e4;
+      background: #fafaf9;
+      border-radius: 14px;
+      overflow: hidden;
+      height: 360px;
+      min-width: 0;
+    }
+    #graph-svg{ width: 100%; height: 100%; display:block; }
+
+    pre{
+      background:#0b0a09;
+      color:#e7e5e4;
+      border-radius: 14px;
+      padding: 12px 12px;
+      overflow:auto;
+      font-size: 11px;
+      line-height: 1.6;
+      border: 1px solid #1c1917;
+      min-height: 360px;
+      position: relative;
+    }
+    .code-line{ display:block; padding: 1px 6px; border-radius: 8px; }
+    .code-line.active{ background: rgba(34,197,94,0.20); color:#fff; }
+
+    .kv{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .kv .box{
+      flex: 1;
+      min-width: 160px;
+      border: 1.5px solid #e7e5e4;
+      background:#fafaf9;
+      padding: 10px 11px;
+      border-radius: 12px;
+      font-size: 11px;
+    }
+
+    .link{ stroke:#d6d3d1; stroke-width:2; }
+    .link.active{ stroke:#22c55e; stroke-width:3.5; }
+    .node circle{ fill:#fff; stroke:#a8a29e; stroke-width:2; }
+    .node text{ font-size: 11px; font-weight: 900; fill:#1c1917; }
+    .node.visited circle{ stroke:#22c55e; stroke-width:3; }
+    .node.current circle{ stroke:#16a34a; stroke-width:4; }
+
+    @media (max-width: 980px){
+      body{ overflow:auto; }
+      .app{ flex-direction: column; overflow: visible; }
+      .sidebar{ width: auto; }
+      .canvas, pre{ min-height: 280px; height: 280px; }
+    }
+  </style>
+</head>
+<body data-page="graphs">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 16 16"><path d="M8 1 L8 5 M8 5 L4 9 M8 5 L12 9 M4 9 L4 13 M4 9 L6 13 M12 9 L10 13 M12 9 L14 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">DS Lab</div>
+        <div class="brand-sub">graphs — DFS/BFS</div>
+      </div>
+    </div>
+    <nav class="course-links" aria-label="Course sections">
+      <a class="course-link" data-page="trees" href="index.html"><span class="course-pill" style="background:#0ea5e9"></span>Trees</a>
+      <a class="course-link" data-page="adts" href="adts.html"><span class="course-pill" style="background:#f97316"></span>ADTs</a>
+      <a class="course-link" data-page="graphs" href="graphs.html"><span class="course-pill" style="background:#22c55e"></span>Graphs</a>
+    </nav>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sb-title">Input graph</div>
+      <div class="sb-note" style="margin-bottom: 10px">
+        <strong>Format:</strong> one edge per line: <span class="muted">u v</span> (labels can be A, 1, s, etc).<br/>
+        Example:<br/>
+        <span class="muted">A B</span><br/><span class="muted">A C</span><br/><span class="muted">B D</span>
+      </div>
+      <textarea id="edges-input" spellcheck="false">A B
+A C
+B D
+C D
+D E
+B F</textarea>
+
+      <div class="row" style="margin-top: 10px">
+        <div class="field" style="min-width: 140px">
+          <label>Directed?</label>
+          <select id="directed">
+            <option value="no" selected>Undirected</option>
+            <option value="yes">Directed</option>
+          </select>
+        </div>
+        <div class="field" style="min-width: 140px">
+          <label>Start vertex</label>
+          <input id="start" type="text" value="A" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 10px">
+        <button class="btn" id="build">Build</button>
+        <button class="btn secondary" id="reset">Reset run</button>
+      </div>
+
+      <div class="sb-title" style="margin-top: 16px">Traversal</div>
+      <div class="row">
+        <div class="field" style="min-width: 160px">
+          <label>Algorithm</label>
+          <select id="algo">
+            <option value="bfs" selected>BFS (queue)</option>
+            <option value="dfs">DFS (stack)</option>
+          </select>
+        </div>
+        <div class="field" style="min-width: 160px">
+          <label>Neighbor order</label>
+          <select id="order">
+            <option value="lex" selected>Lexicographic</option>
+            <option value="input">Input order</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top: 10px">
+        <button class="btn" id="step">Step</button>
+        <button class="btn secondary" id="play">Auto</button>
+        <button class="btn secondary" id="pause" disabled>Pause</button>
+      </div>
+
+      <div class="sb-title" style="margin-top: 16px">Representation</div>
+      <div class="sb-note">
+        <strong>Adjacency map</strong> (Map d'adjacence, 14.2.3) is shown in the main panel.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Graph visualization + adjacency map</div>
+            <div class="card-sub">Step-by-step: marks visited, shows frontier, highlights current vertex/edge.</div>
+          </div>
+          <div class="pill"><span class="dot" style="color:#22c55e"></span>14.2–14.3</div>
+        </div>
+        <div class="card-b">
+          <div class="split">
+            <div class="pane">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Graph</div>
+              <div class="canvas">
+                <svg id="graph-svg" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet"></svg>
+              </div>
+            </div>
+            <div class="pane">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Adjacency map</div>
+              <pre id="adj"></pre>
+            </div>
+          </div>
+          <div class="kv">
+            <div class="box"><strong>Frontier</strong><div id="frontier" class="muted" style="margin-top:6px"></div></div>
+            <div class="box"><strong>Visited</strong><div id="visited" class="muted" style="margin-top:6px"></div></div>
+            <div class="box"><strong>Output order</strong><div id="output" class="muted" style="margin-top:6px"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Code under the hood (iterative)</div>
+            <div class="card-sub">DFS ↔ stack, BFS ↔ queue. One highlight = current step.</div>
+          </div>
+          <div class="pill"><span class="dot" style="color:#16a34a"></span>simulation</div>
+        </div>
+        <div class="card-b">
+          <pre id="code"></pre>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const els = {
+      edges: document.getElementById('edges-input'),
+      directed: document.getElementById('directed'),
+      start: document.getElementById('start'),
+      build: document.getElementById('build'),
+      reset: document.getElementById('reset'),
+      algo: document.getElementById('algo'),
+      order: document.getElementById('order'),
+      step: document.getElementById('step'),
+      play: document.getElementById('play'),
+      pause: document.getElementById('pause'),
+      adj: document.getElementById('adj'),
+      frontier: document.getElementById('frontier'),
+      visited: document.getElementById('visited'),
+      output: document.getElementById('output'),
+      code: document.getElementById('code'),
+      svg: d3.select('#graph-svg'),
+    };
+
+    const sim = {
+      graph: new Map(),     // Map<string, string[]>
+      nodes: [],            // [{id}]
+      links: [],            // [{source, target, key}]
+      directed: false,
+      running: false,
+      timer: null,
+
+      // traversal state
+      start: '',
+      visited: new Set(),
+      frontier: [],         // queue for BFS, stack for DFS
+      output: [],
+      current: null,        // current vertex id
+      activeEdgeKey: null,  // "u->v"
+      phase: 'init',        // init | pop | expand | done
+      neighborIdx: 0,
+      neighbors: [],
+      codeLine: 1,
+    };
+
+    function parseEdges(text){
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const edges = [];
+      for(const line of lines){
+        const parts = line.split(/[,\s]+/).filter(Boolean);
+        if(parts.length < 2) continue;
+        const [u, v] = parts;
+        edges.push([u, v]);
+      }
+      return edges;
+    }
+
+    function buildAdjacency(edges, directed, orderMode){
+      const g = new Map();
+      const seen = new Set();
+      function ensure(u){ if(!g.has(u)) g.set(u, []); }
+      for(const [u, v] of edges){
+        ensure(u); ensure(v);
+        g.get(u).push(v);
+        if(!directed) g.get(v).push(u);
+      }
+      // normalize neighbor list
+      for(const [u, nbrs] of g){
+        if(orderMode === 'lex'){
+          const uniq = [];
+          for(const x of nbrs){
+            const k = u + '->' + x;
+            if(!seen.has(k)){
+              seen.add(k);
+              uniq.push(x);
+            }
+          }
+          uniq.sort((a,b) => String(a).localeCompare(String(b)));
+          g.set(u, uniq);
+        } else {
+          const uniq = [];
+          const local = new Set();
+          for(const x of nbrs){
+            const k = u + '->' + x;
+            if(local.has(k)) continue;
+            local.add(k);
+            uniq.push(x);
+          }
+          g.set(u, uniq);
+        }
+      }
+      return g;
+    }
+
+    function graphToPrettyJSON(g){
+      const obj = {};
+      [...g.keys()].sort((a,b)=>String(a).localeCompare(String(b))).forEach(k => obj[k] = g.get(k));
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function rebuild(){
+      const edges = parseEdges(els.edges.value);
+      sim.directed = els.directed.value === 'yes';
+      sim.graph = buildAdjacency(edges, sim.directed, els.order.value);
+      sim.start = els.start.value.trim();
+      if(sim.start === '' && sim.graph.size > 0) sim.start = [...sim.graph.keys()][0];
+
+      // nodes/links for drawing
+      const nodeIds = [...sim.graph.keys()];
+      sim.nodes = nodeIds.map(id => ({ id }));
+      const links = [];
+      for(const [u, nbrs] of sim.graph){
+        for(const v of nbrs){
+          if(!sim.directed){
+            const key = (String(u) < String(v)) ? `${u}--${v}` : `${v}--${u}`;
+            if(links.some(l => l.key === key)) continue;
+            links.push({ source: u, target: v, key });
+          } else {
+            links.push({ source: u, target: v, key: `${u}->${v}` });
+          }
+        }
+      }
+      sim.links = links;
+
+      els.adj.textContent = graphToPrettyJSON(sim.graph);
+      resetRun();
+      draw();
+      renderPanels();
+      renderCode();
+    }
+
+    function resetRun(){
+      sim.visited = new Set();
+      sim.frontier = [];
+      sim.output = [];
+      sim.current = null;
+      sim.activeEdgeKey = null;
+      sim.phase = 'init';
+      sim.neighborIdx = 0;
+      sim.neighbors = [];
+      sim.codeLine = 1;
+      stopAuto();
+      renderPanels();
+      renderCode();
+      updateStyles();
+    }
+
+    function frontierLabel(){
+      const algo = els.algo.value;
+      if(sim.frontier.length === 0) return '(empty)';
+      if(algo === 'bfs') return sim.frontier.join('  ←  ');
+      return sim.frontier.join('  →  ') + '  (top on right)';
+    }
+
+    function stepTraversal(){
+      const algo = els.algo.value;
+      const start = sim.start;
+      if(!start || !sim.graph.has(start)){
+        sim.phase = 'done';
+        sim.codeLine = 99;
+        renderPanels();
+        renderCode();
+        updateStyles();
+        return;
+      }
+
+      if(sim.phase === 'init'){
+        sim.frontier = [start];
+        sim.codeLine = 2;
+        sim.phase = 'pop';
+        renderPanels(); renderCode(); updateStyles();
+        return;
+      }
+
+      if(sim.phase === 'pop'){
+        if(sim.frontier.length === 0){
+          sim.phase = 'done';
+          sim.codeLine = 99;
+          sim.current = null;
+          sim.activeEdgeKey = null;
+          renderPanels(); renderCode(); updateStyles();
+          return;
+        }
+        sim.current = (algo === 'bfs') ? sim.frontier.shift() : sim.frontier.pop();
+        sim.activeEdgeKey = null;
+        sim.codeLine = 3;
+        sim.phase = 'expand';
+        sim.neighbors = sim.graph.get(sim.current) || [];
+        sim.neighborIdx = 0;
+        renderPanels(); renderCode(); updateStyles();
+        return;
+      }
+
+      // expand: visit current if needed, then process neighbors one by one
+      if(sim.phase === 'expand'){
+        if(!sim.visited.has(sim.current)){
+          sim.visited.add(sim.current);
+          sim.output.push(sim.current);
+          sim.codeLine = 5;
+          renderPanels(); renderCode(); updateStyles();
+          return;
+        }
+
+        // find next neighbor not yet handled
+        if(sim.neighborIdx >= sim.neighbors.length){
+          sim.phase = 'pop';
+          sim.codeLine = 2;
+          sim.current = null;
+          sim.activeEdgeKey = null;
+          renderPanels(); renderCode(); updateStyles();
+          return;
+        }
+
+        const v = sim.neighbors[sim.neighborIdx++];
+        sim.activeEdgeKey = sim.directed ? `${sim.current}->${v}` : ((String(sim.current) < String(v)) ? `${sim.current}--${v}` : `${v}--${sim.current}`);
+        sim.codeLine = 7;
+
+        if(!sim.visited.has(v)){
+          if(algo === 'bfs') sim.frontier.push(v);
+          else sim.frontier.push(v);
+          sim.codeLine = 8;
+        } else {
+          sim.codeLine = 7;
+        }
+        renderPanels(); renderCode(); updateStyles();
+      }
+    }
+
+    function renderPanels(){
+      els.frontier.textContent = frontierLabel();
+      els.visited.textContent = sim.visited.size ? [...sim.visited].join(', ') : '(empty)';
+      els.output.textContent = sim.output.length ? sim.output.join(' → ') : '(empty)';
+    }
+
+    function renderCode(){
+      const algo = els.algo.value;
+      const name = algo === 'bfs' ? 'BFS' : 'DFS';
+      const frontierName = algo === 'bfs' ? 'queue' : 'stack';
+      const getLine = (n, txt) => `<span class="code-line ${sim.codeLine===n?'active':''}">${txt}</span>`;
+
+      let lines = [];
+      lines.push(getLine(1, `// ${name} (iterative) — frontier is a ${frontierName}`));
+      lines.push(getLine(2, `frontier.add(start)`));
+      lines.push(getLine(3, `while (!frontier.isEmpty()) { u = frontier.remove() }`));
+      lines.push(getLine(4, `  if (visited.contains(u)) continue`));
+      lines.push(getLine(5, `  visited.add(u); output.add(u)`));
+      lines.push(getLine(6, `  for (v of adj[u]) {`));
+      lines.push(getLine(7, `    if (!visited.contains(v)) {`));
+      lines.push(getLine(8, `      frontier.add(v)`));
+      lines.push(getLine(9, `    }`));
+      lines.push(getLine(10, `  }`));
+      lines.push(getLine(99, `// done`));
+      els.code.innerHTML = lines.join('\n');
+    }
+
+    function draw(){
+      const W = 900, H = 520;
+      els.svg.selectAll('*').remove();
+
+      const g = els.svg.append('g');
+      const zoom = d3.zoom().scaleExtent([0.4, 2.5]).on('zoom', (ev) => g.attr('transform', ev.transform));
+      els.svg.call(zoom);
+
+      const link = g.append('g').attr('stroke-linecap', 'round')
+        .selectAll('line')
+        .data(sim.links, d => d.key)
+        .join('line')
+        .attr('class', 'link')
+        .attr('data-key', d => d.key);
+
+      const node = g.append('g')
+        .selectAll('g')
+        .data(sim.nodes, d => d.id)
+        .join('g')
+        .attr('class', 'node')
+        .attr('data-id', d => d.id)
+        .call(d3.drag()
+          .on('start', (event, d) => {
+            if(!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x; d.fy = d.y;
+          })
+          .on('drag', (event, d) => {
+            d.fx = event.x; d.fy = event.y;
+          })
+          .on('end', (event, d) => {
+            if(!event.active) simulation.alphaTarget(0);
+            d.fx = null; d.fy = null;
+          })
+        );
+
+      node.append('circle').attr('r', 18);
+      node.append('text').attr('text-anchor','middle').attr('dy','0.35em').text(d => d.id);
+
+      const simulation = d3.forceSimulation(sim.nodes)
+        .force('link', d3.forceLink(sim.links).id(d => d.id).distance(90).strength(0.7))
+        .force('charge', d3.forceManyBody().strength(-420))
+        .force('center', d3.forceCenter(W/2, H/2))
+        .force('collide', d3.forceCollide().radius(34));
+
+      simulation.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+    }
+
+    function updateStyles(){
+      els.svg.selectAll('.node')
+        .classed('visited', d => sim.visited.has(d.id))
+        .classed('current', d => sim.current === d.id);
+
+      els.svg.selectAll('.link')
+        .classed('active', d => sim.activeEdgeKey && d.key === sim.activeEdgeKey);
+    }
+
+    function stopAuto(){
+      sim.running = false;
+      if(sim.timer){
+        clearInterval(sim.timer);
+        sim.timer = null;
+      }
+      els.play.disabled = false;
+      els.pause.disabled = true;
+    }
+
+    function startAuto(){
+      if(sim.running) return;
+      sim.running = true;
+      els.play.disabled = true;
+      els.pause.disabled = false;
+      sim.timer = setInterval(() => {
+        if(sim.phase === 'done'){
+          stopAuto();
+          return;
+        }
+        stepTraversal();
+      }, 450);
+    }
+
+    // UI
+    els.build.addEventListener('click', rebuild);
+    els.reset.addEventListener('click', resetRun);
+    els.step.addEventListener('click', stepTraversal);
+    els.play.addEventListener('click', startAuto);
+    els.pause.addEventListener('click', stopAuto);
+    els.algo.addEventListener('change', () => { resetRun(); renderCode(); });
+    els.order.addEventListener('change', rebuild);
+    els.directed.addEventListener('change', rebuild);
+
+    // init
+    rebuild();
+  </script>
+</body>
+</html>
+

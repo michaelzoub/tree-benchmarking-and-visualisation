@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DS Lab — ADTs (Live Simulation)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      background: #f5f5f4;
+      color: #1c1917;
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Topbar (shared look with index.html) */
+    .topbar{
+      flex-shrink: 0;
+      background:#fff;
+      border-bottom:1px solid #e7e5e4;
+      padding:0 24px;
+      display:flex;
+      align-items:stretch;
+      height:52px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.04);
+      z-index:10;
+      gap: 16px;
+    }
+    .topbar-brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding-right: 20px;
+      border-right: 1px solid #e7e5e4;
+    }
+    .brand-icon{
+      width:28px; height:28px;
+      background: linear-gradient(135deg, #1c1917 60%, #78716c 100%);
+      border-radius:8px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .brand-icon svg{ width:16px; height:16px; fill:#fff; }
+    .brand-name{ font-size:13px; font-weight:800; letter-spacing:-0.01em; }
+    .brand-sub{ font-size:9px; color:#a8a29e; text-transform:uppercase; letter-spacing:0.1em; margin-top:1px; }
+
+    .course-links{
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .course-link{
+      display:inline-flex; align-items:center; gap:8px;
+      height:30px;
+      padding:0 10px;
+      border-radius:10px;
+      border:1px solid transparent;
+      color:#57534e;
+      text-decoration:none;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      white-space:nowrap;
+    }
+    .course-link:hover{ background:#fafaf9; border-color:#e7e5e4; color:#1c1917; }
+    body[data-page="trees"] .course-link[data-page="trees"],
+    body[data-page="adts"] .course-link[data-page="adts"],
+    body[data-page="graphs"] .course-link[data-page="graphs"]{
+      background:#1c1917; border-color:#1c1917; color:#fff;
+    }
+    .course-pill{ width:7px; height:7px; border-radius:999px; background:currentColor; opacity:0.75; }
+
+    /* Layout */
+    .app{
+      flex:1;
+      display:flex;
+      min-height:0;
+      overflow:hidden;
+    }
+    .sidebar{
+      width: 340px;
+      flex-shrink:0;
+      background:#fff;
+      border-right:1px solid #e7e5e4;
+      overflow:auto;
+      padding: 16px;
+    }
+    .main{
+      flex:1;
+      overflow:auto;
+      padding: 18px 20px;
+    }
+    .sb-title{
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #a8a29e;
+      margin: 8px 0 10px;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+    }
+    .sb-title::after{ content:''; flex:1; height:1px; background:#f5f5f4; }
+    .sb-note{
+      border: 1.5px solid #e7e5e4;
+      background: #fafaf9;
+      padding: 10px 11px;
+      border-radius: 10px;
+      font-size: 10px;
+      color:#57534e;
+    }
+    .sb-note strong{ color:#1c1917; }
+
+    .btn{
+      border:none;
+      background:#1c1917;
+      color:#fff;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      cursor:pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+    .btn:hover{ background:#292524; }
+    .btn:active{ transform: scale(0.98); }
+    .btn.secondary{ background:#fff; color:#1c1917; border:1.5px solid #e7e5e4; }
+    .btn.secondary:hover{ background:#fafaf9; }
+    .btn.danger{ background:#b91c1c; }
+    .btn.danger:hover{ background:#991b1b; }
+    .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+    .row{ display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+    .field{ display:flex; flex-direction: column; gap:6px; min-width: 160px; }
+    label{ font-size: 10px; color:#78716c; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
+    input[type="text"], input[type="number"], select{
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1.5px solid #e7e5e4;
+      background: #fff;
+      font-family: inherit;
+      outline:none;
+    }
+    input:focus, select:focus{ border-color:#a8a29e; }
+
+    .card{
+      background:#fff;
+      border:1px solid #e7e5e4;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      overflow:hidden;
+      margin-bottom: 14px;
+    }
+    .card-h{
+      padding: 12px 14px;
+      border-bottom:1px solid #f5f5f4;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .card-title{ font-weight: 900; letter-spacing: -0.01em; }
+    .card-sub{ font-size: 11px; color:#78716c; }
+    .card-b{ padding: 14px; }
+
+    /* Visualizer */
+    .viz{
+      border: 1.5px dashed #e7e5e4;
+      background: #fafaf9;
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 96px;
+      display:flex;
+      align-items:center;
+      overflow:auto;
+    }
+    .cell{
+      width: 54px;
+      height: 54px;
+      border-radius: 12px;
+      border: 1.5px solid #e7e5e4;
+      background:#fff;
+      display:flex;
+      flex-direction: column;
+      align-items:center;
+      justify-content:center;
+      margin-right: 10px;
+      flex-shrink:0;
+    }
+    .cell .v{ font-weight: 900; font-size: 14px; }
+    .cell .i{ font-size: 9px; color:#a8a29e; margin-top: 2px; }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap: 7px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+      color:#57534e;
+      background:#fafaf9;
+      border:1px solid #e7e5e4;
+      padding: 6px 10px;
+      border-radius: 999px;
+      margin-left: auto;
+    }
+    .dot{ width:7px; height:7px; border-radius: 999px; background: currentColor; opacity: 0.75; }
+
+    pre{
+      background:#0b0a09;
+      color:#e7e5e4;
+      border-radius: 14px;
+      padding: 12px 12px;
+      overflow:auto;
+      font-size: 11px;
+      line-height: 1.6;
+      border: 1px solid #1c1917;
+    }
+    .muted{ color:#78716c; }
+
+    @media (max-width: 900px){
+      body{ overflow:auto; }
+      .app{ flex-direction: column; overflow: visible; }
+      .sidebar{ width: auto; }
+    }
+  </style>
+</head>
+<body data-page="adts">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 16 16"><path d="M8 1 L8 5 M8 5 L4 9 M8 5 L12 9 M4 9 L4 13 M4 9 L6 13 M12 9 L10 13 M12 9 L14 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">DS Lab</div>
+        <div class="brand-sub">ADT simulator</div>
+      </div>
+    </div>
+    <nav class="course-links" aria-label="Course sections">
+      <a class="course-link" data-page="trees" href="index.html"><span class="course-pill" style="background:#0ea5e9"></span>Trees</a>
+      <a class="course-link" data-page="adts" href="adts.html"><span class="course-pill" style="background:#f97316"></span>ADTs</a>
+      <a class="course-link" data-page="graphs" href="graphs.html"><span class="course-pill" style="background:#22c55e"></span>Graphs</a>
+    </nav>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sb-title">Exam focus</div>
+      <div class="sb-note">
+        <strong>Lists:</strong> distinguer ADT vs implémentation; comparer coûts (accès / insertions / suppressions); choisir selon l’usage; éviter les pièges (LinkedList “toujours plus rapide”, coût de <span class="muted">get(i)</span>, complexité amortie, etc).<br/><br/>
+        <strong>Stack / Queue / Deque:</strong> disciplines (LIFO/FIFO); implémenter stack &amp; queue à partir de Deque; distinguer interface / discipline / structure.<br/><br/>
+        <strong>Files concurrentes:</strong> thread-safe vs non; bloquant vs non; coût de synchronisation.<br/><br/>
+        <strong>Priority queue:</strong> invariant du heap; comparer heap vs liste triée vs tri global; priorités adaptables.
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Stack / Queue / Deque — Live simulation</div>
+            <div class="card-sub">Same underlying structure, different access discipline.</div>
+          </div>
+          <div class="tag"><span class="dot" style="color:#f97316"></span>chapter 6</div>
+        </div>
+        <div class="card-b">
+          <div class="row" style="margin-bottom:10px">
+            <div class="field" style="min-width:220px">
+              <label>ADT</label>
+              <select id="adt-kind">
+                <option value="stack">Stack (LIFO)</option>
+                <option value="queue">Queue (FIFO)</option>
+                <option value="deque">Deque (double-ended)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Value</label>
+              <input id="adt-value" type="text" placeholder="e.g. 42" />
+            </div>
+            <div class="row" id="adt-actions" style="gap:8px; margin-top: 18px"></div>
+            <button class="btn secondary" id="adt-reset" style="margin-left:auto">Reset</button>
+          </div>
+
+          <div class="row" style="gap:10px; align-items:stretch">
+            <div style="flex:1; min-width: 320px">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Representation</div>
+              <div class="viz" id="adt-viz" aria-label="ADT visualization"></div>
+            </div>
+            <div style="flex:1; min-width: 320px">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Code (what’s being “run”)</div>
+              <pre id="adt-code"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">ADT List — ArrayList vs LinkedList (cost intuition)</div>
+            <div class="card-sub">Simulate step counts (not time) for common operations.</div>
+          </div>
+          <div class="tag"><span class="dot" style="color:#0ea5e9"></span>2.1</div>
+        </div>
+        <div class="card-b">
+          <div class="row" style="margin-bottom: 10px">
+            <div class="field" style="min-width: 240px">
+              <label>Implementation</label>
+              <select id="list-impl">
+                <option value="array">ArrayList (dynamic array)</option>
+                <option value="linked">LinkedList (doubly linked)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>n (size)</label>
+              <input id="list-n" type="number" min="0" value="10" />
+            </div>
+            <div class="field">
+              <label>i (index)</label>
+              <input id="list-i" type="number" min="0" value="7" />
+            </div>
+            <div class="field">
+              <label>operation</label>
+              <select id="list-op">
+                <option value="get">get(i)</option>
+                <option value="add">add(i, x)</option>
+                <option value="remove">remove(i)</option>
+              </select>
+            </div>
+            <button class="btn" id="list-run" style="margin-top: 18px">Compute cost</button>
+          </div>
+
+          <div class="row" style="gap:10px; align-items:stretch">
+            <div style="flex:1; min-width: 320px">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Result</div>
+              <div class="sb-note" id="list-result" style="min-height: 84px"></div>
+            </div>
+            <div style="flex:1; min-width: 320px">
+              <div class="muted" style="font-size:11px; margin-bottom: 8px">Why (typical traversal / shifts)</div>
+              <pre id="list-code"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Priority Queue (Heap) — quick playground</div>
+            <div class="card-sub">Array representation + insert/removeMin (minimal).</div>
+          </div>
+          <div class="tag"><span class="dot" style="color:#22c55e"></span>2.6</div>
+        </div>
+        <div class="card-b">
+          <div class="row" style="margin-bottom: 10px">
+            <div class="field">
+              <label>Key</label>
+              <input id="heap-key" type="number" placeholder="e.g. 5" />
+            </div>
+            <button class="btn" id="heap-insert" style="margin-top:18px">insert</button>
+            <button class="btn secondary" id="heap-remove" style="margin-top:18px">removeMin</button>
+            <button class="btn danger" id="heap-clear" style="margin-top:18px; margin-left:auto">clear</button>
+          </div>
+          <div class="muted" style="font-size:11px; margin-bottom: 8px">Heap array (0-indexed)</div>
+          <div class="viz" id="heap-viz"></div>
+          <div class="muted" style="font-size:11px; margin: 10px 0 8px">Invariant</div>
+          <div class="sb-note"><strong>Min-heap:</strong> for every node \(i\), \(heap[i] \le heap[2i+1]\) and \(heap[i] \le heap[2i+2]\) (when children exist).</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // --- Stack / Queue / Deque simulator ---
+    const state = { kind: 'stack', data: [] };
+
+    const codeByAction = {
+      stack: {
+        push: `// Stack (LIFO)\npush(x):\n  data.addLast(x)\n\npop():\n  if data.isEmpty(): error\n  return data.removeLast()`,
+        pop:  `// Stack (LIFO)\npop():\n  if data.isEmpty(): error\n  return data.removeLast()`,
+      },
+      queue: {
+        enqueue: `// Queue (FIFO)\nenqueue(x):\n  data.addLast(x)\n\ndequeue():\n  if data.isEmpty(): error\n  return data.removeFirst()`,
+        dequeue: `// Queue (FIFO)\ndequeue():\n  if data.isEmpty(): error\n  return data.removeFirst()`,
+      },
+      deque: {
+        addFirst: `// Deque (double-ended)\naddFirst(x):\n  data.addFirst(x)`,
+        addLast:  `// Deque (double-ended)\naddLast(x):\n  data.addLast(x)`,
+        removeFirst: `// Deque (double-ended)\nremoveFirst():\n  if data.isEmpty(): error\n  return data.removeFirst()`,
+        removeLast:  `// Deque (double-ended)\nremoveLast():\n  if data.isEmpty(): error\n  return data.removeLast()`,
+      }
+    };
+
+    const kindSel = document.getElementById('adt-kind');
+    const valueInp = document.getElementById('adt-value');
+    const actionsWrap = document.getElementById('adt-actions');
+    const viz = document.getElementById('adt-viz');
+    const codePre = document.getElementById('adt-code');
+
+    function renderADT(){
+      viz.innerHTML = '';
+      if(state.data.length === 0){
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'Empty';
+        viz.appendChild(empty);
+      } else {
+        state.data.forEach((v, i) => {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.innerHTML = `<div class="v">${String(v)}</div><div class="i">${i}</div>`;
+          viz.appendChild(cell);
+        });
+      }
+    }
+
+    function setCodeFor(action){
+      const byKind = codeByAction[state.kind] || {};
+      codePre.textContent = byKind[action] || `// Select an action`;
+    }
+
+    function buildActions(){
+      actionsWrap.innerHTML = '';
+      const makeBtn = (id, text, onClick, cls='secondary') => {
+        const b = document.createElement('button');
+        b.className = `btn ${cls}`.trim();
+        b.id = id;
+        b.textContent = text;
+        b.onclick = onClick;
+        actionsWrap.appendChild(b);
+      };
+
+      if(state.kind === 'stack'){
+        makeBtn('act-push', 'Push', () => {
+          const v = valueInp.value.trim();
+          if(v === '') return;
+          state.data.push(v);
+          setCodeFor('push');
+          renderADT();
+        }, 'secondary');
+        makeBtn('act-pop', 'Pop', () => {
+          setCodeFor('pop');
+          if(state.data.length === 0) return;
+          state.data.pop();
+          renderADT();
+        }, 'secondary');
+        setCodeFor('push');
+      } else if(state.kind === 'queue'){
+        makeBtn('act-enq', 'Enqueue', () => {
+          const v = valueInp.value.trim();
+          if(v === '') return;
+          state.data.push(v);
+          setCodeFor('enqueue');
+          renderADT();
+        }, 'secondary');
+        makeBtn('act-deq', 'Dequeue', () => {
+          setCodeFor('dequeue');
+          if(state.data.length === 0) return;
+          state.data.shift();
+          renderADT();
+        }, 'secondary');
+        setCodeFor('enqueue');
+      } else {
+        makeBtn('act-af', 'addFirst', () => {
+          const v = valueInp.value.trim();
+          if(v === '') return;
+          state.data.unshift(v);
+          setCodeFor('addFirst');
+          renderADT();
+        }, 'secondary');
+        makeBtn('act-al', 'addLast', () => {
+          const v = valueInp.value.trim();
+          if(v === '') return;
+          state.data.push(v);
+          setCodeFor('addLast');
+          renderADT();
+        }, 'secondary');
+        makeBtn('act-rf', 'removeFirst', () => {
+          setCodeFor('removeFirst');
+          if(state.data.length === 0) return;
+          state.data.shift();
+          renderADT();
+        }, 'secondary');
+        makeBtn('act-rl', 'removeLast', () => {
+          setCodeFor('removeLast');
+          if(state.data.length === 0) return;
+          state.data.pop();
+          renderADT();
+        }, 'secondary');
+        setCodeFor('addLast');
+      }
+    }
+
+    kindSel.addEventListener('change', () => {
+      state.kind = kindSel.value;
+      state.data = [];
+      buildActions();
+      renderADT();
+    });
+    document.getElementById('adt-reset').addEventListener('click', () => {
+      state.data = [];
+      renderADT();
+    });
+
+    // --- List costs playground (step counts) ---
+    const listImpl = document.getElementById('list-impl');
+    const listN = document.getElementById('list-n');
+    const listI = document.getElementById('list-i');
+    const listOp = document.getElementById('list-op');
+    const listRun = document.getElementById('list-run');
+    const listResult = document.getElementById('list-result');
+    const listCode = document.getElementById('list-code');
+
+    function clampIndex(n, i){
+      if(n < 0) n = 0;
+      if(i < 0) i = 0;
+      if(i > n) i = n;
+      return { n, i };
+    }
+
+    function computeListCost(impl, op, n, i){
+      // Extremely simplified "step count" model:
+      // - ArrayList: get = 1, add/remove at i shifts ~ (n-i), plus maybe 1 for write.
+      // - LinkedList (doubly): get requires traversal min(i, n-1-i); add/remove requires finding position too.
+      const t = clampIndex(n, i);
+      n = t.n; i = t.i;
+      if(impl === 'array'){
+        if(op === 'get') return { steps: 1, note: 'Direct index access.' };
+        if(op === 'add') return { steps: (n - i) + 1, note: `Shift ${n - i} elements right, then write.` };
+        if(op === 'remove') return { steps: (n - i - 1 >= 0 ? (n - i - 1) : 0) + 1, note: `Remove, then shift left to fill the gap.` };
+      } else {
+        const traverse = Math.min(i, Math.max(0, n - 1 - i));
+        if(op === 'get') return { steps: traverse + 1, note: `Traverse ${traverse} links to reach index i.` };
+        if(op === 'add') return { steps: traverse + 2, note: `Traverse ${traverse} links, then relink a constant number of pointers.` };
+        if(op === 'remove') return { steps: traverse + 2, note: `Traverse ${traverse} links, then relink pointers to bypass the node.` };
+      }
+      return { steps: 0, note: '' };
+    }
+
+    function renderListCode(impl, op){
+      if(impl === 'array' && op === 'get'){
+        return `// ArrayList\nget(i):\n  return a[i]`;
+      }
+      if(impl === 'array' && op === 'add'){
+        return `// ArrayList\nadd(i, x):\n  ensureCapacity()\n  for j from n-1 downTo i:\n    a[j+1] = a[j]\n  a[i] = x`;
+      }
+      if(impl === 'array' && op === 'remove'){
+        return `// ArrayList\nremove(i):\n  x = a[i]\n  for j from i to n-2:\n    a[j] = a[j+1]\n  return x`;
+      }
+      if(impl === 'linked' && op === 'get'){
+        return `// LinkedList (doubly)\nget(i):\n  p = (i < n/2) ? head : tail\n  while p.index != i:\n    p = (from head) ? p.next : p.prev\n  return p.element`;
+      }
+      if(impl === 'linked' && op === 'add'){
+        return `// LinkedList (doubly)\nadd(i, x):\n  p = nodeAt(i)          // traversal\n  new = Node(x)\n  link(new between p.prev and p)`;
+      }
+      if(impl === 'linked' && op === 'remove'){
+        return `// LinkedList (doubly)\nremove(i):\n  p = nodeAt(i)          // traversal\n  unlink(p)\n  return p.element`;
+      }
+      return `// Select an operation`;
+    }
+
+    listRun.addEventListener('click', () => {
+      const impl = listImpl.value;
+      const op = listOp.value;
+      const n = Number(listN.value || 0);
+      const i = Number(listI.value || 0);
+      const { n: nn, i: ii } = clampIndex(n, i);
+      listN.value = String(nn);
+      listI.value = String(ii);
+      const res = computeListCost(impl, op, nn, ii);
+      listResult.innerHTML = `<strong>Estimated steps:</strong> ${res.steps}<br/><span class="muted">${res.note}</span>`;
+      listCode.textContent = renderListCode(impl, op);
+    });
+
+    // --- Heap playground (min-heap, 0-indexed) ---
+    const heap = [];
+    const heapKey = document.getElementById('heap-key');
+    const heapViz = document.getElementById('heap-viz');
+
+    function heapSwap(i,j){ const t = heap[i]; heap[i] = heap[j]; heap[j] = t; }
+    function heapUp(i){
+      while(i > 0){
+        const p = Math.floor((i - 1) / 2);
+        if(heap[p] <= heap[i]) break;
+        heapSwap(p, i);
+        i = p;
+      }
+    }
+    function heapDown(i){
+      for(;;){
+        const l = 2*i + 1, r = 2*i + 2;
+        if(l >= heap.length) break;
+        let m = l;
+        if(r < heap.length && heap[r] < heap[l]) m = r;
+        if(heap[i] <= heap[m]) break;
+        heapSwap(i, m);
+        i = m;
+      }
+    }
+    function heapInsert(x){
+      heap.push(x);
+      heapUp(heap.length - 1);
+    }
+    function heapRemoveMin(){
+      if(heap.length === 0) return null;
+      const min = heap[0];
+      const last = heap.pop();
+      if(heap.length > 0){
+        heap[0] = last;
+        heapDown(0);
+      }
+      return min;
+    }
+    function renderHeap(){
+      heapViz.innerHTML = '';
+      if(heap.length === 0){
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = 'Empty';
+        heapViz.appendChild(empty);
+        return;
+      }
+      heap.forEach((v, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.innerHTML = `<div class="v">${v}</div><div class="i">${i}</div>`;
+        heapViz.appendChild(cell);
+      });
+    }
+    document.getElementById('heap-insert').addEventListener('click', () => {
+      const x = Number(heapKey.value);
+      if(Number.isNaN(x)) return;
+      heapInsert(x);
+      heapKey.value = '';
+      renderHeap();
+    });
+    document.getElementById('heap-remove').addEventListener('click', () => {
+      heapRemoveMin();
+      renderHeap();
+    });
+    document.getElementById('heap-clear').addEventListener('click', () => {
+      heap.length = 0;
+      renderHeap();
+    });
+
+    // init
+    buildActions();
+    renderADT();
+    listCode.textContent = renderListCode(listImpl.value, listOp.value);
+    listResult.innerHTML = `<strong>Tip:</strong> try <span class="muted">LinkedList + get(i)</span> with large i.`;
+    renderHeap();
+  </script>
+</body>
+</html>
+
