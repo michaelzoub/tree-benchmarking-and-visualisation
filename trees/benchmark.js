@@ -55,6 +55,7 @@ function makeTree(type) {
     case 'twofour':  return new TwoFourTree();
     case 'treap':    return new TreapTree();
     case 'aatree':   return new AATree();
+    case 'btree':    return new BTree();
   }
 }
 

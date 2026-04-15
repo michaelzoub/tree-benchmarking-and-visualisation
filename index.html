@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tree Benchmarker &amp; Visualizer</title>
+<title>Tree Visualizer &amp; Benchmarker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="trees/avl.js"></script>
 <script src="trees/redblack.js"></script>
@@ -11,782 +11,801 @@
 <script src="trees/twofour.js"></script>
 <script src="trees/treap.js"></script>
 <script src="trees/aatree.js"></script>
+<script src="trees/btree.js"></script>
 <script src="trees/benchmark.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
-    background: #fafafa;
-    color: #18181b;
-    font-size: 13px;
-    line-height: 1.5;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  background: #f5f5f4;
+  color: #1c1917;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* ── HEADER ── */
-  .header {
-    border-bottom: 1px solid #e4e4e7;
-    background: #fff;
-  }
-  .header-inner {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 14px 24px;
-  }
-  .header-title {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: #18181b;
-  }
-  .header-sub {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #a1a1aa;
-    margin-left: 10px;
-  }
-  .header-desc {
-    margin-top: 2px;
-    font-size: 10px;
-    color: #71717a;
-  }
+/* ── TOPBAR ── */
+.topbar {
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #e7e5e4;
+  padding: 0 24px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: 52px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  z-index: 10;
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 28px;
+  border-right: 1px solid #e7e5e4;
+  margin-right: 16px;
+}
+.brand-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, #1c1917 60%, #78716c 100%);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-icon svg { width: 16px; height: 16px; fill: #fff; }
+.brand-name { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; color: #1c1917; }
+.brand-sub { font-size: 9px; color: #a8a29e; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 1px; }
 
-  /* ── LAYOUT ── */
-  .layout {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 24px;
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 24px;
-    align-items: start;
-  }
+/* Mode tabs — big tabs at top */
+.mode-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.mode-tab:hover { color: #57534e; }
+.mode-tab.active { border-bottom-color: #1c1917; color: #1c1917; }
+.mode-tab-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
 
-  /* ── SIDEBAR ── */
-  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+/* ── BODY LAYOUT ── */
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
 
-  .panel {
-    border: 1px solid #e4e4e7;
-    background: #fff;
-    padding: 14px 16px;
-  }
-  .panel-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #71717a;
-    margin-bottom: 10px;
-    display: block;
-  }
-  .panel-note {
-    font-size: 9px;
-    color: #a1a1aa;
-    margin-top: 4px;
-    margin-bottom: 8px;
-    display: block;
-  }
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 292px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e7e5e4;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 4px; }
 
-  /* slider */
-  .slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .slider-val { font-size: 12px; font-weight: 600; color: #18181b; }
-  input[type=range] { width: 100%; accent-color: #18181b; cursor: pointer; }
-  .slider-bounds { display: flex; justify-content: space-between; font-size: 9px; color: #a1a1aa; margin-top: 4px; }
+.sb-section {
+  padding: 0 16px 16px;
+  border-bottom: 1px solid #f5f5f4;
+  margin-bottom: 4px;
+}
+.sb-section:last-child { border-bottom: none; }
+.sb-heading {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #a8a29e;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #f5f5f4;
+}
 
-  /* radio / checkbox */
-  .option-list { display: flex; flex-direction: column; gap: 6px; }
-  .option-item { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12px; color: #3f3f46; }
-  .option-item input { accent-color: #18181b; cursor: pointer; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+/* slider */
+.slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.slider-val { font-size: 12px; font-weight: 700; color: #1c1917; background: #f5f5f4; padding: 1px 8px; border-radius: 6px; }
+input[type=range] { width: 100%; accent-color: #1c1917; cursor: pointer; margin: 4px 0; }
+.slider-bounds { display: flex; justify-content: space-between; font-size: 9px; color: #a8a29e; }
 
-  /* textarea */
-  textarea {
-    width: 100%;
-    resize: none;
-    border: 1px solid #e4e4e7;
-    background: #f4f4f5;
-    color: #18181b;
-    padding: 7px 9px;
-    font-family: inherit;
-    font-size: 11px;
-    outline: none;
-    transition: border-color 0.15s;
-    margin-top: 8px;
-  }
-  textarea:focus { border-color: #a1a1aa; }
-  .custom-count { font-size: 9px; color: #71717a; margin-top: 4px; }
+/* options */
+.option-list { display: flex; flex-direction: column; gap: 8px; }
+.option-item {
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; font-size: 12px; color: #44403c;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.option-item:hover { background: #fafaf9; }
+.option-item input[type=radio]:checked + .opt-dot + span,
+.option-item input:checked ~ * { color: #1c1917; }
+.option-item input { accent-color: #1c1917; cursor: pointer; flex-shrink: 0; }
+.opt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.option-desc {
+  font-size: 9px; color: #a8a29e;
+  margin: 2px 0 0 26px;
+  line-height: 1.4;
+}
 
-  /* run button */
-  .btn-run {
-    width: 100%;
-    border: 1px solid #18181b;
-    background: #18181b;
-    color: #fff;
-    padding: 10px;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-run:hover:not(:disabled) { background: #27272a; }
-  .btn-run:disabled { opacity: 0.45; cursor: not-allowed; }
+/* tree checkboxes */
+.tree-check-list { display: flex; flex-direction: column; gap: 4px; }
+.tree-check-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1.5px solid #e7e5e4;
+  transition: border-color 0.15s, background 0.12s;
+  font-size: 12px;
+  color: #44403c;
+  user-select: none;
+}
+.tree-check-item:hover { background: #fafaf9; }
+.tree-check-item.checked { border-color: var(--tc); background: color-mix(in srgb, var(--tc) 5%, #fff); }
+.tree-check-item input { display: none; }
+.tree-check-item .tci-swatch {
+  width: 10px; height: 10px; border-radius: 3px;
+  background: var(--tc);
+  flex-shrink: 0;
+}
+.tree-check-item .tci-name { font-weight: 600; flex: 1; }
+.tree-check-item .tci-check {
+  width: 14px; height: 14px; border-radius: 4px;
+  border: 1.5px solid #d6d3d1;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.tree-check-item.checked .tci-check {
+  background: var(--tc);
+  border-color: var(--tc);
+}
+.tree-check-item.checked .tci-check::after {
+  content: '';
+  width: 6px; height: 6px;
+  background: #fff;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
 
-  /* error */
-  .error-box {
-    border: 1px solid #fca5a5;
-    background: #fef2f2;
-    color: #b91c1c;
-    padding: 10px 12px;
-    font-size: 11px;
-    margin-bottom: 12px;
-  }
+/* textarea */
+textarea {
+  width: 100%;
+  resize: none;
+  border: 1.5px solid #e7e5e4;
+  background: #fafaf9;
+  color: #1c1917;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  outline: none;
+  border-radius: 8px;
+  transition: border-color 0.15s;
+  margin-top: 8px;
+}
+textarea:focus { border-color: #a8a29e; }
+.custom-count { font-size: 9px; color: #78716c; margin-top: 4px; }
 
-  /* ── MAIN ── */
-  .main-area { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+/* run button */
+.btn-run {
+  width: 100%;
+  border: none;
+  background: #1c1917;
+  color: #fff;
+  padding: 11px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: background 0.15s, transform 0.1s;
+  margin: 0 16px;
+  width: calc(100% - 32px);
+}
+.btn-run:hover:not(:disabled) { background: #292524; }
+.btn-run:active:not(:disabled) { transform: scale(0.98); }
+.btn-run:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* empty / loading state */
-  .state-box {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 400px;
-    border: 1px dashed #d4d4d8;
-    background: #fff;
-  }
-  .state-box p { font-size: 13px; color: #a1a1aa; }
-  .spinner {
-    width: 28px; height: 28px;
-    border: 2px solid #d4d4d8;
-    border-top-color: #52525b;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 10px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* note callout */
+.callout {
+  border: 1.5px solid #e7e5e4;
+  background: #fafaf9;
+  padding: 9px 11px;
+  font-size: 9px;
+  color: #57534e;
+  line-height: 1.55;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+.callout strong { color: #1c1917; font-weight: 600; }
 
-  /* summary cards */
-  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-  .summary-card {
-    border: 1px solid #e4e4e7;
-    background: #fff;
-    padding: 12px 14px;
-  }
-  .summary-bar { height: 2px; width: 28px; margin-bottom: 6px; }
-  .summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a; }
-  .summary-value { font-size: 18px; font-weight: 600; color: #18181b; margin-top: 4px; tabular-nums: true; }
-  .summary-sub { font-size: 11px; color: #71717a; }
+/* error */
+.error-box {
+  border: 1.5px solid #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 10px 12px;
+  font-size: 11px;
+  border-radius: 8px;
+  margin: 0 16px 12px;
+}
 
-  /* tab nav */
-  .tab-bar {
-    display: flex;
-    border-bottom: 1px solid #e4e4e7;
-    background: #fff;
-    overflow-x: auto;
-  }
-  .tab-btn {
-    padding: 10px 16px;
-    font-family: inherit;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: #a1a1aa;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
-    margin-bottom: -1px;
-  }
-  .tab-btn:hover { color: #52525b; }
-  .tab-btn.active { border-bottom-color: #18181b; color: #18181b; }
+/* ── MAIN ── */
+.main-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.main-area::-webkit-scrollbar { display: none; }
 
-  /* chart panel */
-  .chart-panel {
-    border: 1px solid #e4e4e7;
-    border-top: 0;
-    background: #fff;
-    padding: 20px;
-  }
-  .chart-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  .chart-title {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #71717a;
-  }
-  .chart-subtitle { font-size: 9px; color: #a1a1aa; margin-top: 2px; }
+/* Sub-tab bar */
+.subtab-bar {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid #e7e5e4;
+  background: #fff;
+  overflow-x: auto;
+  padding: 0 20px;
+}
+.subtab-bar::-webkit-scrollbar { display: none; }
+.subtab-btn {
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+}
+.subtab-btn:hover { color: #57534e; }
+.subtab-btn.active { border-bottom-color: #1c1917; color: #1c1917; }
 
-  /* export button */
-  .btn-export {
-    border: 1px solid #d4d4d8;
-    background: #fff;
-    color: #71717a;
-    padding: 4px 10px;
-    font-family: inherit;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .btn-export:hover { border-color: #71717a; color: #18181b; }
+/* content area below subtabs */
+.content-area {
+  flex: 1;
+  padding: 20px;
+  min-width: 0;
+}
 
-  /* tree diagram controls */
-  .tree-btns { display: flex; gap: 4px; flex-wrap: wrap; }
-  .tree-btn {
-    border: 1px solid #d4d4d8;
-    background: #fff;
-    color: #71717a;
-    padding: 4px 10px;
-    font-family: inherit;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .tree-btn.active { border-color: #18181b; background: #18181b; color: #fff; }
-  .tree-btn:hover:not(.active) { border-color: #71717a; }
+/* empty / loading */
+.state-box {
+  display: flex; align-items: center; justify-content: center;
+  height: 400px;
+  border: 1.5px dashed #d6d3d1;
+  background: #fff;
+  border-radius: 12px;
+}
+.state-box p { font-size: 13px; color: #a8a29e; }
+.spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid #e7e5e4;
+  border-top-color: #57534e;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 10px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  .legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #71717a; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .legend-hint { font-size: 9px; color: #a1a1aa; }
+/* summary cards */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.summary-card {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  padding: 12px 14px;
+  border-radius: 10px;
+  transition: box-shadow 0.15s;
+}
+.summary-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.summary-bar { height: 3px; width: 28px; margin-bottom: 8px; border-radius: 2px; }
+.summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; }
+.summary-value { font-size: 20px; font-weight: 700; color: #1c1917; margin-top: 4px; }
+.summary-sub { font-size: 10px; color: #78716c; margin-top: 2px; }
 
-  .tree-svg-wrap {
-    border: 1px solid #f4f4f5;
-    background: #fafafa;
-    overflow: hidden;
-  }
-  .tree-svg-wrap svg { display: block; width: 100%; }
+/* chart panel */
+.chart-panel {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+}
+.chart-header {
+  display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px;
+}
+.chart-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; font-weight: 700; }
+.chart-subtitle { font-size: 9px; color: #a8a29e; margin-top: 2px; }
 
-  .too-large-msg {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    border: 1px dashed #d4d4d8;
-  }
-  .too-large-msg p { font-size: 12px; color: #a1a1aa; }
+/* export btn */
+.btn-export {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  color: #78716c;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.btn-export:hover { border-color: #78716c; color: #1c1917; }
 
-  /* heatmap */
-  .heatmap-canvas-wrap { overflow-x: auto; }
-  .heatmap-canvas-wrap canvas { display: block; }
-  .no-splay {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    border: 1px dashed #d4d4d8;
-  }
+/* tree diagram */
+.tree-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.tree-btn {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  color: #78716c;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.12s;
+}
+.tree-btn.active { border-color: #1c1917; background: #1c1917; color: #fff; }
+.tree-btn:hover:not(.active) { border-color: #78716c; }
+.legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: #78716c; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.tree-svg-wrap {
+  border: 1.5px solid #f5f5f4;
+  background: #fafaf9;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.tree-svg-wrap svg { display: block; width: 100%; }
+.too-large-msg {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px;
+  border: 1.5px dashed #e7e5e4;
+  border-radius: 10px;
+}
+.too-large-msg p { font-size: 12px; color: #a8a29e; }
 
-  /* ── SIDEBAR SECTION HEADERS ── */
-  .section-head {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #a1a1aa;
-    font-weight: 600;
-    padding: 0 0 6px 0;
-    border-bottom: 1px solid #f4f4f5;
-    margin-bottom: 10px;
-    display: block;
-  }
-  .option-desc {
-    font-size: 9px;
-    color: #a1a1aa;
-    margin-left: 22px;
-    margin-top: 1px;
-    margin-bottom: 4px;
-    line-height: 1.4;
-  }
-  .option-item-wrap { display: flex; flex-direction: column; }
+/* heatmap */
+.heatmap-canvas-wrap { overflow-x: auto; }
+.heatmap-canvas-wrap canvas { display: block; }
+.no-splay {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px; border: 1.5px dashed #e7e5e4; border-radius: 10px;
+}
 
-  /* callout box */
-  .callout {
-    border: 1px solid #e4e4e7;
-    background: #f4f4f5;
-    padding: 9px 11px;
-    font-size: 9px;
-    color: #52525b;
-    line-height: 1.55;
-    margin-top: 8px;
-  }
-  .callout strong { color: #18181b; font-weight: 600; }
-  .callout-title {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #71717a;
-    font-weight: 600;
-    margin-bottom: 4px;
-    display: block;
-  }
+/* insertion log */
+.log-wrap {
+  overflow: auto; max-height: 480px;
+  border: 1.5px solid #e7e5e4; border-radius: 10px;
+}
+.log-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.log-table thead tr { background: #fafaf9; position: sticky; top: 0; z-index: 1; }
+.log-table th {
+  padding: 7px 12px; text-align: left;
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: #78716c; font-weight: 700;
+  border-bottom: 1.5px solid #e7e5e4;
+  white-space: nowrap; cursor: pointer; user-select: none;
+}
+.log-table th:hover { color: #1c1917; }
+.log-table th .sort-arrow { margin-left: 3px; color: #a8a29e; }
+.log-table th.sort-asc .sort-arrow::after { content: ' ↑'; }
+.log-table th.sort-desc .sort-arrow::after { content: ' ↓'; }
+.log-table td {
+  padding: 5px 12px; border-bottom: 1px solid #f5f5f4;
+  color: #44403c; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tr:hover td { background: #fafaf9; }
+.log-table td.key-cell { font-weight: 700; color: #1c1917; }
+.log-filter {
+  border: 1.5px solid #e7e5e4; background: #fafaf9;
+  color: #1c1917; padding: 6px 10px;
+  font-family: inherit; font-size: 11px; outline: none; border-radius: 8px;
+}
+.log-filter:focus { border-color: #a8a29e; }
 
-  /* ── INSERTION LOG TABLE ── */
-  .log-wrap {
-    overflow: auto;
-    max-height: 480px;
-    border: 1px solid #e4e4e7;
-  }
-  .log-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-  }
-  .log-table thead tr {
-    background: #f4f4f5;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-  .log-table th {
-    padding: 7px 12px;
-    text-align: left;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #71717a;
-    font-weight: 600;
-    border-bottom: 1px solid #e4e4e7;
-    white-space: nowrap;
-    cursor: pointer;
-    user-select: none;
-  }
-  .log-table th:hover { color: #18181b; }
-  .log-table th .sort-arrow { margin-left: 3px; color: #a1a1aa; }
-  .log-table th.sort-asc .sort-arrow::after { content: ' ↑'; }
-  .log-table th.sort-desc .sort-arrow::after { content: ' ↓'; }
-  .log-table td {
-    padding: 5px 12px;
-    border-bottom: 1px solid #f4f4f5;
-    color: #3f3f46;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .log-table tr:last-child td { border-bottom: none; }
-  .log-table tr:hover td { background: #fafafa; }
-  .log-table td.key-cell { font-weight: 600; color: #18181b; }
-  .log-table td.tree-cell { color: #52525b; }
-  .log-note {
-    font-size: 9px;
-    color: #a1a1aa;
-    margin-top: 8px;
-  }
-  .log-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .log-filter {
-    border: 1px solid #e4e4e7;
-    background: #f4f4f5;
-    color: #18181b;
-    padding: 5px 9px;
-    font-family: inherit;
-    font-size: 11px;
-    outline: none;
-  }
-  .log-filter:focus { border-color: #a1a1aa; }
+/* ── LIVE INSERT ── */
+.live-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.live-controls-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: #fff;
+  border: 1.5px solid #e7e5e4;
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+.live-input {
+  border: 1.5px solid #e7e5e4; background: #fafaf9;
+  color: #1c1917; padding: 7px 11px;
+  font-family: inherit; font-size: 12px; outline: none;
+  border-radius: 8px; width: 100px;
+  transition: border-color 0.15s;
+}
+.live-input:focus { border-color: #a8a29e; }
+.btn-primary {
+  border: none; background: #1c1917; color: #fff;
+  padding: 7px 16px;
+  font-family: inherit; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  cursor: pointer; border-radius: 8px;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn-primary:hover:not(:disabled) { background: #292524; }
+.btn-primary:active:not(:disabled) { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary.green { background: #15803d; }
+.btn-primary.green:hover:not(:disabled) { background: #166534; }
+.btn-primary.red-btn { background: #dc2626; }
+.btn-primary.red-btn:hover:not(:disabled) { background: #b91c1c; }
+.btn-secondary {
+  border: 1.5px solid #e7e5e4; background: #fff; color: #57534e;
+  padding: 7px 14px;
+  font-family: inherit; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  cursor: pointer; border-radius: 8px;
+  transition: all 0.12s; white-space: nowrap;
+}
+.btn-secondary:hover { border-color: #78716c; color: #1c1917; }
+.live-speed-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #57534e; }
+.live-speed-row input[type=range] { width: 90px; }
+.live-tree-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.live-tree-tab {
+  border: 1.5px solid #e7e5e4; background: #fff; color: #78716c;
+  padding: 4px 11px;
+  font-family: inherit; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  cursor: pointer; border-radius: 6px; transition: all 0.12s;
+}
+.live-tree-tab.active { border-color: #1c1917; background: #1c1917; color: #fff; }
+.live-tree-tab:hover:not(.active) { border-color: #78716c; }
+.live-status-bar {
+  display: flex; align-items: center; gap: 16px;
+  font-size: 10px; color: #78716c;
+  flex-wrap: wrap;
+}
+.live-status-item strong { color: #1c1917; font-weight: 700; }
+.live-key-history {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  max-height: 52px; overflow: hidden;
+}
+.live-key-badge {
+  display: inline-block; padding: 2px 8px;
+  font-size: 10px; font-family: monospace;
+  border-radius: 5px; background: #f5f5f4; color: #44403c;
+  border: 1px solid #e7e5e4;
+  transition: background 0.25s, color 0.25s;
+}
+.live-key-badge.new-badge { background: #1c1917; color: #fff; border-color: #1c1917; }
+.live-key-badge.searched { background: #f59e0b; color: #fff; border-color: #f59e0b; }
 
-  /* ── LIVE INSERT PANEL ── */
-  .live-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-  }
-  .live-input {
-    border: 1px solid #e4e4e7;
-    background: #f4f4f5;
-    color: #18181b;
-    padding: 6px 10px;
-    font-family: inherit;
-    font-size: 12px;
-    outline: none;
-    width: 90px;
-    transition: border-color 0.15s;
-  }
-  .live-input:focus { border-color: #a1a1aa; }
-  .btn-live {
-    border: 1px solid #18181b;
-    background: #18181b;
-    color: #fff;
-    padding: 6px 14px;
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-  .btn-live:hover:not(:disabled) { background: #27272a; }
-  .btn-live:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn-live-secondary {
-    border: 1px solid #d4d4d8;
-    background: #fff;
-    color: #52525b;
-    padding: 6px 14px;
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .btn-live-secondary:hover { border-color: #71717a; color: #18181b; }
-  .live-speed-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: #52525b;
-  }
-  .live-speed-row input[type=range] { width: 80px; accent-color: #18181b; }
-  .live-tree-tabs {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-  }
-  .live-tree-tab {
-    border: 1px solid #d4d4d8;
-    background: #fff;
-    color: #71717a;
-    padding: 3px 10px;
-    font-family: inherit;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .live-tree-tab.active { border-color: #18181b; background: #18181b; color: #fff; }
-  .live-tree-tab:hover:not(.active) { border-color: #71717a; }
-  .live-status-bar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 10px;
-    color: #71717a;
-    background: #f4f4f5;
-    border: 1px solid #e4e4e7;
-    padding: 6px 12px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
-  .live-status-item strong { color: #18181b; }
-  .live-key-history {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-    max-height: 56px;
-    overflow: hidden;
-  }
-  .live-key-badge {
-    display: inline-block;
-    padding: 2px 7px;
-    font-size: 10px;
-    font-family: monospace;
-    border-radius: 2px;
-    background: #e4e4e7;
-    color: #3f3f46;
-    border: 1px solid #d4d4d8;
-    transition: background 0.3s, color 0.3s;
-  }
-  .live-key-badge.new {
-    background: #18181b;
-    color: #fff;
-    border-color: #18181b;
-  }
-  .live-svg-area {
-    position: relative;
-  }
-  /* Animated node pulse */
-  @keyframes node-appear {
-    0%   { r: 0; opacity: 0; }
-    60%  { r: 18px; opacity: 1; }
-    100% { r: 14px; opacity: 1; }
-  }
-  @keyframes node-appear-rect {
-    0%   { transform: scale(0); opacity: 0; }
-    60%  { transform: scale(1.15); opacity: 1; }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  .live-new-node { animation: node-appear 0.35s ease-out forwards; }
+/* lookup panel */
+.lookup-panel {
+  background: #fff; border: 1.5px solid #e7e5e4;
+  padding: 14px 16px; border-radius: 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.lookup-result {
+  font-size: 11px; padding: 5px 12px; border-radius: 6px;
+  font-weight: 600;
+}
+.lookup-result.found { background: #dcfce7; color: #166534; }
+.lookup-result.not-found { background: #fee2e2; color: #991b1b; }
 
-  @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; padding: 16px; }
-    .summary-grid { grid-template-columns: repeat(2, 1fr); }
-  }
+/* animated SVG node highlights */
+@keyframes node-pulse {
+  0%   { r: 0; opacity: 0; }
+  55%  { r: 17px; opacity: 1; }
+  100% { r: 13px; opacity: 1; }
+}
+@keyframes node-search-flash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.node-new   { animation: node-pulse 0.32s ease-out forwards; }
+.node-found { animation: node-search-flash 0.4s ease-in-out 2; }
+
+@media (max-width: 820px) {
+  .sidebar { width: 240px; }
+  html, body { overflow: auto; }
+  .app-body { flex-direction: column; overflow: visible; }
+  .main-area { overflow: visible; }
+}
 </style>
 </head>
 <body>
 
-<header class="header">
-  <div class="header-inner">
-    <div style="display:flex;align-items:baseline;gap:0">
-      <span class="header-title">Tree Benchmarker &amp; Visualizer</span>
-      <span class="header-sub">AVL · Red-Black · Splay · 2-4 · Treap · AA</span>
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 16 16"><path d="M8 1 L8 5 M8 5 L4 9 M8 5 L12 9 M4 9 L4 13 M4 9 L6 13 M12 9 L10 13 M12 9 L14 13" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
     </div>
-    <div class="header-desc">Interactive benchmarking, live animated insertion &amp; visualization — all client-side</div>
+    <div>
+      <div class="brand-name">TreeLab</div>
+      <div class="brand-sub">Visualizer &amp; Benchmarker</div>
+    </div>
   </div>
+  <nav class="mode-tabs" id="mode-tabs">
+    <button class="mode-tab active" data-mode="bench">
+      <div class="mode-tab-dot" style="background:#2563eb"></div>
+      Benchmark
+    </button>
+    <button class="mode-tab" data-mode="live">
+      <div class="mode-tab-dot" style="background:#16a34a"></div>
+      Live Insert
+    </button>
+  </nav>
 </header>
 
-<div class="layout">
+<div class="app-body">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <!-- SIDEBAR (shared) -->
+  <aside class="sidebar" id="sidebar">
 
-    <!-- Dataset size -->
-    <div class="panel">
-      <span class="section-head">Dataset Size</span>
-      <div class="slider-row">
-        <span style="font-size:11px;color:#52525b">Keys (N)</span>
-        <span class="slider-val" id="n-display">2000</span>
-      </div>
-      <input type="range" id="n-slider" min="100" max="100000" step="100" value="2000">
-      <div class="slider-bounds"><span>100</span><span>100k</span></div>
-      <div style="font-size:9px;color:#a1a1aa;margin-top:6px">
-        Total number of keys generated and operated on. Larger N takes longer but reveals asymptotic behaviour more clearly.
+    <!-- Trees to include -->
+    <div class="sb-section">
+      <div class="sb-heading">Trees</div>
+      <div class="tree-check-list" id="tree-check-list">
+        <!-- injected by JS -->
       </div>
     </div>
 
-    <!-- Access Pattern -->
-    <div class="panel">
-      <span class="section-head">Access Pattern</span>
-      <div style="font-size:9px;color:#71717a;margin-bottom:10px">
-        Controls <em>which</em> keys are chosen at each step. Affects how realistically each tree's structure mirrors real-world workloads.
+    <!-- Benchmark-only controls -->
+    <div id="sb-bench-controls">
+      <div class="sb-section">
+        <div class="sb-heading">Dataset Size</div>
+        <div class="slider-row">
+          <span style="font-size:11px;color:#57534e">Keys (N)</span>
+          <span class="slider-val" id="n-display">2 000</span>
+        </div>
+        <input type="range" id="n-slider" min="100" max="100000" step="100" value="2000">
+        <div class="slider-bounds"><span>100</span><span>100k</span></div>
       </div>
-      <div class="option-list">
-        <div class="option-item-wrap">
+
+      <div class="sb-section">
+        <div class="sb-heading">Access Pattern</div>
+        <div class="option-list">
           <label class="option-item">
-            <input type="radio" name="pattern" value="uniform" checked> Uniform Random
+            <input type="radio" name="pattern" value="uniform" checked>
+            <span class="opt-dot" style="background:#6366f1"></span>
+            <span>Uniform Random</span>
           </label>
-          <div class="option-desc">Each key is drawn uniformly from [1…N]. No hot spots. Baseline distribution — tests average-case behaviour.</div>
-        </div>
-        <div class="option-item-wrap">
+          <div class="option-desc">Keys drawn uniformly from [1…N]. Baseline for average-case behaviour.</div>
           <label class="option-item">
-            <input type="radio" name="pattern" value="sequential"> Sequential
+            <input type="radio" name="pattern" value="sequential">
+            <span class="opt-dot" style="background:#f97316"></span>
+            <span>Sequential</span>
           </label>
-          <div class="option-desc">Keys inserted as 1, 2, 3 … N in order. Worst case for naïve BSTs; shows how AVL/RB prevent O(n) degeneration.</div>
-        </div>
-        <div class="option-item-wrap">
+          <div class="option-desc">1, 2, 3 … N in order. Worst case for unbalanced BSTs.</div>
           <label class="option-item">
-            <input type="radio" name="pattern" value="skewed"> Skewed / Zipf
+            <input type="radio" name="pattern" value="skewed">
+            <span class="opt-dot" style="background:#ec4899"></span>
+            <span>Skewed / Zipf</span>
           </label>
-          <div class="option-desc">80 % of operations target the hottest 20 % of keys (Pareto / 80-20 rule). Favours Splay, which self-organises toward frequently accessed nodes.</div>
+          <div class="option-desc">80% of ops hit the hottest 20% of keys. Favours Splay.</div>
         </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-heading">Operation</div>
+        <div class="option-list">
+          <label class="option-item">
+            <input type="radio" name="operation" value="insert" checked>
+            <span class="opt-dot" style="background:#10b981"></span>
+            <span>Insert</span>
+          </label>
+          <label class="option-item">
+            <input type="radio" name="operation" value="lookup">
+            <span class="opt-dot" style="background:#3b82f6"></span>
+            <span>Lookup</span>
+          </label>
+          <label class="option-item">
+            <input type="radio" name="operation" value="delete">
+            <span class="opt-dot" style="background:#ef4444"></span>
+            <span>Delete</span>
+          </label>
+        </div>
+        <div class="callout" style="margin-top:8px">
+          <strong>Lookup &amp; Delete</strong> pre-build the tree with all N keys before timing starts.
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-heading">Custom Data</div>
+        <div style="font-size:9px;color:#78716c">Optional integer sequence — overrides access pattern generator.</div>
+        <textarea id="custom-input" rows="3" placeholder="e.g. 5 3 8 1 9 2 7 4 6"></textarea>
+        <div class="custom-count" id="custom-count"></div>
       </div>
     </div>
 
-    <!-- Operation -->
-    <div class="panel">
-      <span class="section-head">Operation Under Test</span>
-      <div style="font-size:9px;color:#71717a;margin-bottom:10px">
-        The single operation type that is timed and counted. Each option benchmarks a <em>full batch</em> of N operations of that type — not just one.
-      </div>
-      <div class="option-list">
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="radio" name="operation" value="insert" checked> Insert
-          </label>
-          <div class="option-desc">Inserts all N keys into an empty tree. Measures raw build time and shows how the tree balances as it grows.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="radio" name="operation" value="lookup"> Lookup
-          </label>
-          <div class="option-desc">Searches for each of the N keys in a pre-built tree (all N keys are inserted first, then N searches are timed). Tests read-path performance.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="radio" name="operation" value="delete"> Delete
-          </label>
-          <div class="option-desc">Deletes each of the N keys from a pre-built tree (all N inserted first, then N deletions are timed). Tests restructuring cost on removal.</div>
-        </div>
-      </div>
-      <div class="callout">
-        <span class="callout-title">Note — Lookup &amp; Delete pre-build</span>
-        For <strong>Lookup</strong> and <strong>Delete</strong>, the tree is fully populated with all N keys <em>before</em> timing starts. Only the timed operation phase (N searches or N deletions) is measured — not the initial insert phase.
-      </div>
-    </div>
-
-    <!-- Trees -->
-    <div class="panel">
-      <span class="section-head">Trees to Include</span>
-      <div class="option-list">
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-avl" checked>
-            <span class="dot" style="background:#2563eb"></span>
-            AVL Tree
-          </label>
-          <div class="option-desc">Height-balanced BST. Strictly keeps |balance factor| ≤ 1 via rotations. Guaranteed O(log n) for all ops. Taller upper bound ~1.44 log₂n.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-redblack" checked>
-            <span class="dot" style="background:#dc2626"></span>
-            Red-Black Tree
-          </label>
-          <div class="option-desc">Color-bit per node; enforces black-height invariant. Fewer rotations than AVL on insert/delete. Used in std::map, Java TreeMap, Linux kernel.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-splay" checked>
-            <span class="dot" style="background:#16a34a"></span>
-            Splay Tree
-          </label>
-          <div class="option-desc">No balance field — accessed node is rotated to root (zig/zig-zig/zig-zag). Amortized O(log n). Naturally caches hot keys near root.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-twofour" checked>
-            <span class="dot" style="background:#d97706"></span>
-            2-4 Tree
-          </label>
-          <div class="option-desc">B-tree of order 4. Each node holds 1–3 keys and 2–4 children. Perfectly balanced by height. Splits on overflow, merges/borrows on underflow.</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-treap" checked>
-            <span class="dot" style="background:#7c3aed"></span>
-            Treap
-          </label>
-          <div class="option-desc">Randomized BST. Each node carries a random priority forming a max-heap. No explicit balancing — random priorities keep expected height O(log n).</div>
-        </div>
-        <div class="option-item-wrap">
-          <label class="option-item">
-            <input type="checkbox" id="cb-aatree" checked>
-            <span class="dot" style="background:#0891b2"></span>
-            AA Tree
-          </label>
-          <div class="option-desc">Simplified Red-Black variant (Arne Andersson, 1993). Red links only on right spine; skew + split rebalancing. Cleaner invariants than RB with similar performance.</div>
+    <!-- Live-only controls (hidden when in bench mode) -->
+    <div id="sb-live-controls" style="display:none">
+      <div class="sb-section">
+        <div class="sb-heading">Info</div>
+        <div style="font-size:9px;color:#78716c;line-height:1.6">
+          All checked trees receive every inserted key simultaneously. Switch the view tab above the diagram to compare structures.<br><br>
+          Use <strong>Auto-Play</strong> to stream keys in continuously. Adjust speed with the slider.<br><br>
+          Use <strong>Lookup</strong> to search for a key and see the search path highlighted in amber.
         </div>
       </div>
     </div>
 
-    <!-- Custom Data -->
-    <div class="panel">
-      <span class="section-head">Custom Data (optional)</span>
-      <div style="font-size:9px;color:#71717a;margin-bottom:6px">
-        Provide your own key sequence. Bypasses the access-pattern generator — your exact integers are used in insertion order. Useful for studying a specific dataset.
-      </div>
-      <textarea id="custom-input" rows="3" placeholder="e.g. 5 3 8 1 9 2 7 4 6"></textarea>
-      <div class="custom-count" id="custom-count"></div>
-    </div>
-
-    <!-- Run -->
+    <div id="error-box" class="error-box" style="display:none"></div>
     <button class="btn-run" id="btn-run">Run Benchmark</button>
 
   </aside>
 
-  <!-- MAIN -->
+  <!-- MAIN AREA -->
   <main class="main-area" id="main-area">
 
-    <div class="state-box" id="empty-state">
-      <p>Configure parameters and click Run Benchmark</p>
-    </div>
+    <!-- ═══════ BENCHMARK MODE ═══════ -->
+    <div id="mode-bench">
+      <div class="subtab-bar" id="bench-subtab-bar">
+        <button class="subtab-btn active" data-tab="bar">Height Comparison</button>
+        <button class="subtab-btn" data-tab="heighttime">Height / Time</button>
+        <button class="subtab-btn" data-tab="line">Ops/ms vs N</button>
+        <button class="subtab-btn" data-tab="tree">Tree Diagram</button>
+        <button class="subtab-btn" data-tab="heatmap">Splay Heatmap</button>
+        <button class="subtab-btn" data-tab="log">Insertion Log</button>
+      </div>
 
-    <div style="display:none" id="loading-state">
-      <div class="state-box">
-        <div style="text-align:center">
-          <div class="spinner"></div>
-          <p>Running benchmark…</p>
+      <div class="content-area">
+        <div class="state-box" id="empty-state">
+          <p>Configure parameters in the sidebar and click Run Benchmark</p>
+        </div>
+        <div style="display:none" id="loading-state">
+          <div class="state-box">
+            <div style="text-align:center">
+              <div class="spinner"></div>
+              <p>Running benchmark…</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:none" id="results-area">
+          <div class="summary-grid" id="summary-grid"></div>
+          <div class="chart-panel" id="chart-panel"></div>
         </div>
       </div>
     </div>
 
-    <div style="display:none" id="error-box" class="error-box"></div>
-
-    <!-- Results (hidden until run) -->
-    <div style="display:none" id="results-area">
-
-      <div class="summary-grid" id="summary-grid"></div>
-
-      <div>
-        <div class="tab-bar" id="tab-bar">
-          <button class="tab-btn active" data-tab="bar">Height Comparison</button>
-          <button class="tab-btn" data-tab="heighttime">Height / Time</button>
-          <button class="tab-btn" data-tab="line">Ops/ms vs N</button>
-          <button class="tab-btn" data-tab="tree">Tree Diagram</button>
-          <button class="tab-btn" data-tab="heatmap">Splay Heatmap</button>
-          <button class="tab-btn" data-tab="log">Insertion Log</button>
-          <button class="tab-btn" data-tab="live">Live Insert</button>
-        </div>
-
-        <div class="chart-panel" id="chart-panel">
-          <!-- injected by JS -->
-        </div>
+    <!-- ═══════ LIVE INSERT MODE ═══════ -->
+    <div id="mode-live" style="display:none">
+      <div class="subtab-bar" id="live-subtab-bar">
+        <!-- injected dynamically when trees change -->
       </div>
-
+      <div class="content-area" id="live-content">
+        <!-- injected by renderLiveMode() -->
+      </div>
     </div>
+
   </main>
 </div>
 
 <script>
-// ─────────────────────────────────────────────
-// TREE COLORS / LABELS
-// (Tree classes + benchmark functions loaded from trees/*.js)
-// ─────────────────────────────────────────────
-const TREE_COLORS = { avl: '#2563eb', redblack: '#dc2626', splay: '#16a34a', twofour: '#d97706', treap: '#7c3aed', aatree: '#0891b2' };
-const TREE_LABELS = { avl: 'AVL', redblack: 'Red-Black', splay: 'Splay', twofour: '2-4 Tree', treap: 'Treap', aatree: 'AA Tree' };
+// ─────────────────────────────────────────────────────────────
+// TREE REGISTRY
+// ─────────────────────────────────────────────────────────────
+const ALL_TREES = [
+  { id:'avl',      label:'AVL',       color:'#2563eb', desc:'Height-balanced BST. |balance| ≤ 1. O(log n) worst-case.' },
+  { id:'redblack', label:'Red-Black', color:'#dc2626', desc:'Color-bit invariant. Fewer rotations than AVL. Used in std::map.' },
+  { id:'splay',    label:'Splay',     color:'#16a34a', desc:'Accessed node rotated to root. Amortized O(log n). Hot-key cache.' },
+  { id:'twofour',  label:'2-4 Tree',  color:'#d97706', desc:'B-tree order 4. Perfectly height-balanced. Splits / merges.' },
+  { id:'treap',    label:'Treap',     color:'#7c3aed', desc:'Randomized BST with heap priorities. Expected O(log n).' },
+  { id:'aatree',   label:'AA Tree',   color:'#0891b2', desc:'Simplified Red-Black (Andersson). Right-spine red links only.' },
+  { id:'btree',    label:'B-Tree',    color:'#be185d', desc:'Min-degree 3 B-tree. Up to 5 keys/node. Very low height.' },
+];
 
-// ─────────────────────────────────────────────
-// INSERTION LOG
-// Cap at 500 rows to keep the table readable.
-// Records: step #, key inserted, and the resulting
-// height of each enabled tree after that insert.
-// ─────────────────────────────────────────────
-const LOG_CAP = 500;
+const TREE_COLORS = Object.fromEntries(ALL_TREES.map(t=>[t.id,t.color]));
+const TREE_LABELS = Object.fromEntries(ALL_TREES.map(t=>[t.id,t.label]));
 
-function buildInsertionLog(config) {
-  const { n, pattern, trees: treeTypes, customData } = config;
-  const keys = generateKeys(n, pattern, customData);
-  const cap = Math.min(keys.length, LOG_CAP);
+// ─────────────────────────────────────────────────────────────
+// TREE CHECKBOX WIDGETS
+// ─────────────────────────────────────────────────────────────
+let enabledTrees = Object.fromEntries(ALL_TREES.map(t=>[t.id,true]));
 
-  // Build one tree instance per type — we walk them in lock-step
-  const instances = treeTypes.map(t => ({ type: t, tree: makeTree(t) }));
-  const rows = [];
-
-  for (let i = 0; i < cap; i++) {
-    const key = keys[i];
-    const heights = {};
-    for (const inst of instances) {
-      inst.tree.insert(key);
-      heights[inst.type] = inst.tree.height();
-    }
-    rows.push({ step: i + 1, key, heights });
-  }
-  return { rows, treeTypes, keys: keys.slice(0, cap), totalN: keys.length };
+function buildTreeCheckboxes() {
+  const list = document.getElementById('tree-check-list');
+  list.innerHTML = ALL_TREES.map(t => `
+    <label class="tree-check-item${enabledTrees[t.id]?' checked':''}" style="--tc:${t.color}" data-tree="${t.id}">
+      <input type="checkbox" ${enabledTrees[t.id]?'checked':''} data-tree="${t.id}">
+      <span class="tci-swatch"></span>
+      <span class="tci-name">${t.label}</span>
+      <span class="tci-check"></span>
+    </label>`).join('');
+  list.querySelectorAll('.tree-check-item').forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.tree;
+      enabledTrees[id] = !enabledTrees[id];
+      el.classList.toggle('checked', enabledTrees[id]);
+      el.querySelector('input').checked = enabledTrees[id];
+      if (currentMode === 'live') liveState.dirty = true;
+    };
+  });
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// MODE SWITCHING
+// ─────────────────────────────────────────────────────────────
+let currentMode = 'bench';
+
+document.getElementById('mode-tabs').querySelectorAll('.mode-tab').forEach(btn => {
+  btn.onclick = () => {
+    currentMode = btn.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
+    document.getElementById('mode-bench').style.display = currentMode==='bench' ? '' : 'none';
+    document.getElementById('mode-live').style.display  = currentMode==='live'  ? '' : 'none';
+    document.getElementById('sb-bench-controls').style.display = currentMode==='bench' ? '' : 'none';
+    document.getElementById('sb-live-controls').style.display  = currentMode==='live'  ? '' : 'none';
+    document.getElementById('btn-run').style.display = currentMode==='bench' ? '' : 'none';
+    if (currentMode === 'live') renderLiveMode();
+  };
+});
+
+// ─────────────────────────────────────────────────────────────
 // EXPORT HELPERS
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 function downloadCanvasAsPNG(canvas, filename){
   canvas.toBlob(blob=>{
-    if(!blob)return;
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
   },'image/png');
@@ -799,132 +818,15 @@ function downloadSVGAsPNG(svgEl, filename, scale=2){
   const img=new Image();
   img.onload=()=>{
     const c=document.createElement('canvas');c.width=width*scale;c.height=height*scale;
-    const ctx=c.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,c.width,c.height);
+    const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
     ctx.scale(scale,scale);ctx.drawImage(img,0,0);URL.revokeObjectURL(url);downloadCanvasAsPNG(c,filename);
   };
   img.src=url;
 }
 
-// ─────────────────────────────────────────────
-// CHART: BAR (Final Height)
-// ─────────────────────────────────────────────
-function renderBarChart(container, results){
-  container.innerHTML=`
-    <div class="chart-header">
-      <div><div class="chart-title">Final tree height comparison</div></div>
-      <button class="btn-export" id="export-bar">Export PNG</button>
-    </div>
-    <svg id="bar-svg" style="width:100%"></svg>`;
-  const svg=container.querySelector('#bar-svg');
-  const W=container.clientWidth||600;
-  const margin={top:20,right:20,bottom:40,left:50};
-  const H=320, w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
-  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
-  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
-  const x=d3.scaleBand().domain(results.map(r=>TREE_LABELS[r.tree])).range([0,w]).padding(0.35);
-  const maxH=d3.max(results,r=>r.finalHeight)??1;
-  const y=d3.scaleLinear().domain([0,maxH*1.15]).range([h,0]);
-  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#e4e4e7').attr('stroke-dasharray','3,3');});
-  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x)).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','11px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','11px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('text').attr('transform','rotate(-90)').attr('y',-40).attr('x',-h/2).attr('text-anchor','middle').style('font-family','monospace').style('font-size','10px').attr('fill','#71717a').text('TREE HEIGHT');
-  g.selectAll('.bar').data(results).join('rect').attr('x',d=>x(TREE_LABELS[d.tree])).attr('y',d=>y(d.finalHeight)).attr('width',x.bandwidth()).attr('height',d=>h-y(d.finalHeight)).attr('fill',d=>TREE_COLORS[d.tree]).attr('opacity',0.88);
-  g.selectAll('.bar-lbl').data(results).join('text').attr('x',d=>x(TREE_LABELS[d.tree])+x.bandwidth()/2).attr('y',d=>y(d.finalHeight)-6).attr('text-anchor','middle').style('font-family','monospace').style('font-size','11px').attr('fill','#18181b').text(d=>d.finalHeight);
-  container.querySelector('#export-bar').onclick=()=>downloadSVGAsPNG(svg,'tree-height-comparison.png');
-}
-
-// ─────────────────────────────────────────────
-// CHART: HEIGHT / TIME
-// ─────────────────────────────────────────────
-function renderHeightChart(container, results){
-  container.innerHTML=`
-    <div class="chart-header">
-      <div><div class="chart-title">Height evolution per 1k-op batch</div></div>
-      <button class="btn-export" id="export-htime">Export PNG</button>
-    </div>
-    <svg id="htime-svg" style="width:100%"></svg>`;
-  const svg=container.querySelector('#htime-svg');
-  const W=container.clientWidth||600;
-  const margin={top:20,right:110,bottom:50,left:55};
-  const H=340, w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
-  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
-  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
-  const all=results.flatMap(r=>r.heightSamples);
-  if(!all.length){g.append('text').attr('x',w/2).attr('y',h/2).attr('text-anchor','middle').style('font-family','monospace').style('font-size','12px').attr('fill','#a1a1aa').text('No samples (increase N)');return;}
-  const maxBatch=d3.max(all,d=>d.batch)??1;
-  const maxH2=d3.max(all,d=>d.height)??1;
-  const x=d3.scaleLinear().domain([1,maxBatch]).range([0,w]);
-  const y=d3.scaleLinear().domain([0,maxH2*1.1]).range([h,0]);
-  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#e4e4e7').attr('stroke-dasharray','3,3');});
-  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('text').attr('x',w/2).attr('y',h+40).attr('text-anchor','middle').style('font-family','monospace').style('font-size','10px').attr('fill','#71717a').text('Batch (×1000 ops)');
-  g.append('text').attr('transform','rotate(-90)').attr('y',-46).attr('x',-h/2).attr('text-anchor','middle').style('font-family','monospace').style('font-size','10px').attr('fill','#71717a').text('TREE HEIGHT');
-  const line=d3.line().x(d=>x(d.batch)).y(d=>y(d.height)).curve(d3.curveMonotoneX);
-  for(const r of results){
-    if(r.heightSamples.length<2)continue;
-    g.append('path').datum(r.heightSamples).attr('fill','none').attr('stroke',TREE_COLORS[r.tree]).attr('stroke-width',2).attr('d',line);
-  }
-  const leg=g.append('g').attr('transform',`translate(${w+12},0)`);
-  results.forEach((r,i)=>{
-    const row=leg.append('g').attr('transform',`translate(0,${i*20})`);
-    row.append('line').attr('x1',0).attr('x2',18).attr('y1',6).attr('y2',6).attr('stroke',TREE_COLORS[r.tree]).attr('stroke-width',2);
-    row.append('text').attr('x',22).attr('y',10).style('font-family','monospace').style('font-size','10px').attr('fill','#3f3f46').text(TREE_LABELS[r.tree]);
-  });
-  container.querySelector('#export-htime').onclick=()=>downloadSVGAsPNG(svg,'height-over-time.png');
-}
-
-// ─────────────────────────────────────────────
-// CHART: LINE (ops/ms vs N sweep)
-// ─────────────────────────────────────────────
-function renderLineChart(container, points, enabledTrees){
-  container.innerHTML=`
-    <div class="chart-header">
-      <div><div class="chart-title">Throughput (ops/ms) vs N — log scale</div></div>
-      <button class="btn-export" id="export-line">Export PNG</button>
-    </div>
-    <svg id="line-svg" style="width:100%"></svg>`;
-  const svg=container.querySelector('#line-svg');
-  const W=container.clientWidth||600;
-  const margin={top:20,right:110,bottom:50,left:60};
-  const H=340, w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
-  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
-  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
-  const trees=Object.keys(enabledTrees).filter(t=>enabledTrees[t]);
-  const byTree=new Map();for(const t of trees)byTree.set(t,points.filter(p=>p.tree===t));
-  const allN=[...new Set(points.map(p=>p.n))].sort((a,b)=>a-b);
-  const allOps=points.map(p=>p.opsPerMs).filter(v=>isFinite(v)&&v>0);
-  const x=d3.scaleLog().domain([d3.min(allN)??100,d3.max(allN)??100000]).range([0,w]);
-  const y=d3.scaleLinear().domain([0,(d3.max(allOps)??1)*1.1]).range([h,0]);
-  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#e4e4e7').attr('stroke-dasharray','3,3');});
-  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).ticks(5,(v)=>{const n=Number(v);return n>=1000?`${n/1000}k`:String(n);})).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#d4d4d8');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#52525b');gg.selectAll('line').attr('stroke','#d4d4d8');});
-  g.append('text').attr('x',w/2).attr('y',h+40).attr('text-anchor','middle').style('font-family','monospace').style('font-size','10px').attr('fill','#71717a').text('N (log scale)');
-  g.append('text').attr('transform','rotate(-90)').attr('y',-52).attr('x',-h/2).attr('text-anchor','middle').style('font-family','monospace').style('font-size','10px').attr('fill','#71717a').text('OPS / ms');
-  const line=d3.line().x(d=>x(d.n)).y(d=>y(d.opsPerMs)).curve(d3.curveMonotoneX);
-  for(const t of trees){
-    const tp=(byTree.get(t)??[]).filter(p=>p.opsPerMs>0);
-    if(tp.length<2)continue;
-    g.append('path').datum(tp).attr('fill','none').attr('stroke',TREE_COLORS[t]).attr('stroke-width',2).attr('d',line);
-    g.selectAll(`.dot-${t}`).data(tp).join('circle').attr('cx',d=>x(d.n)).attr('cy',d=>y(d.opsPerMs)).attr('r',3).attr('fill',TREE_COLORS[t]);
-  }
-  const leg=g.append('g').attr('transform',`translate(${w+12},0)`);
-  trees.forEach((t,i)=>{
-    const row=leg.append('g').attr('transform',`translate(0,${i*20})`);
-    row.append('line').attr('x1',0).attr('x2',18).attr('y1',6).attr('y2',6).attr('stroke',TREE_COLORS[t]).attr('stroke-width',2);
-    row.append('text').attr('x',22).attr('y',10).style('font-family','monospace').style('font-size','10px').attr('fill','#3f3f46').text(TREE_LABELS[t]);
-  });
-  container.querySelector('#export-line').onclick=()=>downloadSVGAsPNG(svg,'ops-vs-n.png');
-}
-
-// ─────────────────────────────────────────────
-// CHART: TREE DIAGRAM
-// ─────────────────────────────────────────────
-// Tree diagram display cap. Diagrams above this are shown at full cap
-// (a sample of DIAG_CAP keys) with a notice. Raised from 120 to 300 so
-// that small-to-medium runs show the full tree.
-const DIAG_CAP = 300;
-
+// ─────────────────────────────────────────────────────────────
+// LAYOUT BUILDERS
+// ─────────────────────────────────────────────────────────────
 function buildAVLLayout(root){
   if(!root)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
@@ -934,12 +836,12 @@ function buildAVLLayout(root){
   layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
   return{nodes,edges,size:nodes.length};
 }
-function buildRBLayout(root, NIL){
+function buildRBLayout(root,NIL){
   if(!root||root.isNIL)return{nodes:[],edges:[],size:0};
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left&&!n.left.isNIL)c.push(n.left);if(n.right&&!n.right.isNIL)c.push(n.right);return c.length?c:null;});
   const layout=d3.tree().nodeSize([30,56])(h);
   const nodes=[],edges=[];
-  layout.each(d=>nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:d.data.color==='RED'?'#dc2626':'#18181b',textColor:'#fff',shape:'circle'}));
+  layout.each(d=>nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:d.data.color==='RED'?'#dc2626':'#1c1917',textColor:'#fff',shape:'circle'}));
   layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
   return{nodes,edges,size:nodes.length};
 }
@@ -975,11 +877,8 @@ function buildTreapLayout(root){
   const layout=d3.tree().nodeSize([36,60])(h);
   const nodes=[],edges=[];
   layout.each(d=>{
-    // Use priority shade: higher priority = brighter purple
     const p=d.data.priority??0.5;
-    const alpha=0.4+p*0.6;
-    const baseHex=TREE_COLORS.treap;
-    nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:baseHex,textColor:'#fff',shape:'circle',opacity:alpha,priorityLabel:`p=${d.data.priority!=null?d.data.priority.toFixed(2):'?'}`});
+    nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:TREE_COLORS.treap,textColor:'#fff',shape:'circle',opacity:0.35+p*0.65});
   });
   layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
   return{nodes,edges,size:nodes.length};
@@ -989,185 +888,336 @@ function buildAALayout(root){
   const h=d3.hierarchy(root,n=>{const c=[];if(n.left)c.push(n.left);if(n.right)c.push(n.right);return c.length?c:null;});
   const layout=d3.tree().nodeSize([30,56])(h);
   const nodes=[],edges=[];
-  layout.each(d=>{
-    // Color by level: level 1 = dark, higher = lighter shade
-    const lvl=d.data.level??1;
-    nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:TREE_COLORS.aatree,textColor:'#fff',shape:'circle',level:lvl});
-  });
+  layout.each(d=>nodes.push({id:String(d.data.key),label:String(d.data.key),x:d.x,y:d.y,color:TREE_COLORS.aatree,textColor:'#fff',shape:'circle',level:d.data.level??1}));
   layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y,sameLevel:l.source.data.level===l.target.data.level}));
   return{nodes,edges,size:nodes.length};
 }
+function buildBTreeLayout(root){
+  if(!root)return{nodes:[],edges:[],size:0};
+  const h=d3.hierarchy(root,n=>(!n.isLeaf&&n.children.length)?n.children:null);
+  const layout=d3.tree().nodeSize([80,60])(h);
+  const nodes=[],edges=[];
+  layout.each(d=>{
+    const label=d.data.keys.join(' | ');
+    const ww=Math.max(44,label.length*7+16);
+    nodes.push({id:d.data.keys.join(','),label,x:d.x,y:d.y,color:TREE_COLORS.btree,textColor:'#fff',shape:'rect',width:ww,height:24});
+  });
+  layout.links().forEach(l=>edges.push({x1:l.source.x,y1:l.source.y,x2:l.target.x,y2:l.target.y}));
+  return{nodes,edges,size:nodes.length};
+}
 
-function drawLayout(svgEl, layout, newKey){
+function getLayout(type, treeInst){
+  if(type==='avl')      return buildAVLLayout(treeInst.root);
+  if(type==='redblack') return buildRBLayout(treeInst.root, treeInst.getNIL());
+  if(type==='splay')    return buildSplayLayout(treeInst.root);
+  if(type==='twofour')  return buildTwoFourLayout(treeInst.root);
+  if(type==='treap')    return buildTreapLayout(treeInst.root);
+  if(type==='aatree')   return buildAALayout(treeInst.root);
+  if(type==='btree')    return buildBTreeLayout(treeInst.root);
+  return{nodes:[],edges:[],size:0};
+}
+
+// ─────────────────────────────────────────────────────────────
+// DRAW LAYOUT (shared)
+// opts: { newKey, searchPath, foundKey }
+// ─────────────────────────────────────────────────────────────
+function drawLayout(svgEl, layout, opts={}){
   const{nodes,edges}=layout;
-  if(!nodes.length)return;
+  if(!nodes.length){
+    d3.select(svgEl).selectAll('*').remove();
+    svgEl.setAttribute('viewBox','0 0 400 180');
+    svgEl.setAttribute('height','180');
+    d3.select(svgEl).append('text').attr('x',200).attr('y',90)
+      .attr('text-anchor','middle').style('font-family','monospace')
+      .style('font-size','12px').attr('fill','#a8a29e').text('Empty — insert a key to begin');
+    return;
+  }
   const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-  const pad=40,W=Math.max(maxX-minX+pad*2,400),H=Math.max(maxY-minY+pad*2,200);
+  const pad=44,W=Math.max(maxX-minX+pad*2,400),H=Math.max(maxY-minY+pad*2,200);
   const offX=-minX+pad,offY=-minY+pad;
   d3.select(svgEl).selectAll('*').remove();
   svgEl.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  svgEl.setAttribute('height',String(Math.min(H,600)));
+  svgEl.setAttribute('height',String(Math.min(H,560)));
   const g=d3.select(svgEl).append('g');
+
+  // edges
   for(const e of edges){
     g.append('line')
       .attr('x1',e.x1+offX).attr('y1',e.y1+offY)
       .attr('x2',e.x2+offX).attr('y2',e.y2+offY)
-      .attr('stroke', e.sameLevel ? '#38bdf8' : '#d4d4d8')
-      .attr('stroke-width', e.sameLevel ? 2 : 1)
-      .attr('stroke-dasharray', e.sameLevel ? '4,2' : null);
+      .attr('stroke',e.sameLevel?'#38bdf8':'#d6d3d1')
+      .attr('stroke-width',e.sameLevel?2:1.2)
+      .attr('stroke-dasharray',e.sameLevel?'4,2':null);
   }
+
+  const searchPathIds = new Set((opts.searchPath||[]).map(n=>String(n.key ?? n.keys?.[0])));
+  const foundKey = opts.foundKey !== undefined ? String(opts.foundKey) : null;
+  const newKey   = opts.newKey   !== undefined ? String(opts.newKey)   : null;
+
+  // nodes
   for(const n of nodes){
-    const isNew = newKey !== undefined && String(n.id) === String(newKey);
+    const isNew    = newKey  && n.id === newKey;
+    const isFound  = foundKey && n.id === foundKey;
+    // For multi-key nodes (2-4, B-tree) search path match on any key in id
+    const inPath   = searchPathIds.size > 0 && [...searchPathIds].some(k => n.id.split(',').includes(k));
+
+    let strokeColor = '#fff', strokeW = 1.5;
+    if(isNew)    { strokeColor='#fbbf24'; strokeW=3; }
+    if(inPath)   { strokeColor='#f59e0b'; strokeW=2.5; }
+    if(isFound)  { strokeColor='#22c55e'; strokeW=3; }
+
+    let fillColor = n.color;
+    if(inPath && !isFound) fillColor = _lighten(n.color, 0.3);
+
     if(n.shape==='circle'){
-      const circ = g.append('circle')
-        .attr('cx',n.x+offX).attr('cy',n.y+offY).attr('r',14)
-        .attr('fill',n.color)
-        .attr('fill-opacity', n.opacity ?? 1)
-        .attr('stroke', isNew ? '#fbbf24' : '#fff')
-        .attr('stroke-width', isNew ? 3 : 1.5);
-      if(isNew) circ.attr('class','live-new-node');
-      g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4).attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px').attr('fill',n.textColor).text(n.label.length>5?n.label.slice(0,4)+'…':n.label);
+      const circ=g.append('circle')
+        .attr('cx',n.x+offX).attr('cy',n.y+offY).attr('r',13)
+        .attr('fill',fillColor).attr('fill-opacity',n.opacity??1)
+        .attr('stroke',strokeColor).attr('stroke-width',strokeW);
+      if(isNew)   circ.attr('class','node-new');
+      if(isFound) circ.attr('class','node-found');
+      g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4)
+        .attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px')
+        .attr('fill',n.textColor).text(n.label.length>5?n.label.slice(0,4)+'…':n.label);
     } else {
-      const rw=(n.width??50)/2,rh=(n.height??22)/2;
-      const rect = g.append('rect')
+      const rw=(n.width??50)/2, rh=(n.height??22)/2;
+      const rect=g.append('rect')
         .attr('x',n.x+offX-rw).attr('y',n.y+offY-rh)
-        .attr('width',n.width??50).attr('height',n.height??22)
-        .attr('rx',3).attr('fill',n.color)
-        .attr('stroke', isNew ? '#fbbf24' : '#fff')
-        .attr('stroke-width', isNew ? 3 : 1.5);
-      if(isNew) rect.attr('class','live-new-node');
-      g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4).attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px').attr('fill',n.textColor).text(n.label);
+        .attr('width',n.width??50).attr('height',n.height??22).attr('rx',4)
+        .attr('fill',fillColor).attr('stroke',strokeColor).attr('stroke-width',strokeW);
+      if(isNew)   rect.attr('class','node-new');
+      if(isFound) rect.attr('class','node-found');
+      g.append('text').attr('x',n.x+offX).attr('y',n.y+offY+4)
+        .attr('text-anchor','middle').style('font-family','monospace').style('font-size','9px')
+        .attr('fill',n.textColor).text(n.label);
     }
   }
-  const zoom=d3.zoom().scaleExtent([0.1,8]).on('zoom',e=>g.attr('transform',e.transform));
+
+  const zoom=d3.zoom().scaleExtent([0.08,8]).on('zoom',e=>g.attr('transform',e.transform));
   d3.select(svgEl).call(zoom);
 }
 
-function renderTreeDiagram(container, benchResult, selectedTree, enabledTrees){
-  const enabledList=Object.keys(enabledTrees).filter(t=>enabledTrees[t]);
+function _lighten(hex, amt){
+  // Blend hex color toward white by amt (0-1)
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const mix=(c)=>Math.round(c+(255-c)*amt);
+  return `#${mix(r).toString(16).padStart(2,'0')}${mix(g).toString(16).padStart(2,'0')}${mix(b).toString(16).padStart(2,'0')}`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// BENCHMARK MODE — CHARTS
+// ─────────────────────────────────────────────────────────────
+const LOG_CAP  = 500;
+const DIAG_CAP = 300;
+
+function buildInsertionLog(config){
+  const{n,pattern,trees:treeTypes,customData}=config;
+  const keys=generateKeys(n,pattern,customData);
+  const cap=Math.min(keys.length,LOG_CAP);
+  const instances=treeTypes.map(t=>({type:t,tree:makeTree(t)}));
+  const rows=[];
+  for(let i=0;i<cap;i++){
+    const key=keys[i];const heights={};
+    for(const inst of instances){inst.tree.insert(key);heights[inst.type]=inst.tree.height();}
+    rows.push({step:i+1,key,heights});
+  }
+  return{rows,treeTypes,totalN:keys.length};
+}
+
+function renderBarChart(container,results){
+  container.innerHTML=`<div class="chart-header"><div><div class="chart-title">Final tree height comparison</div></div><button class="btn-export" id="export-bar">Export PNG</button></div><svg id="bar-svg" style="width:100%"></svg>`;
+  const svg=container.querySelector('#bar-svg');
+  const W=container.clientWidth||600,margin={top:20,right:20,bottom:40,left:50};
+  const H=300,w=W-margin.left-margin.right,h=H-margin.top-margin.bottom;
+  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
+  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const x=d3.scaleBand().domain(results.map(r=>TREE_LABELS[r.tree])).range([0,w]).padding(0.38);
+  const maxH=d3.max(results,r=>r.finalHeight)??1;
+  const y=d3.scaleLinear().domain([0,maxH*1.15]).range([h,0]);
+  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#f5f5f4').attr('stroke-dasharray','3,3');});
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x)).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');gg.selectAll('line').attr('stroke','#e7e5e4');});
+  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');gg.selectAll('line').attr('stroke','#e7e5e4');});
+  g.selectAll('.bar').data(results).join('rect').attr('x',d=>x(TREE_LABELS[d.tree])).attr('y',d=>y(d.finalHeight)).attr('width',x.bandwidth()).attr('height',d=>h-y(d.finalHeight)).attr('fill',d=>TREE_COLORS[d.tree]).attr('rx',4).attr('opacity',0.9);
+  g.selectAll('.bar-lbl').data(results).join('text').attr('x',d=>x(TREE_LABELS[d.tree])+x.bandwidth()/2).attr('y',d=>y(d.finalHeight)-6).attr('text-anchor','middle').style('font-family','monospace').style('font-size','11px').attr('fill','#1c1917').text(d=>d.finalHeight);
+  container.querySelector('#export-bar').onclick=()=>downloadSVGAsPNG(svg,'tree-height-comparison.png');
+}
+
+function renderHeightChart(container,results){
+  container.innerHTML=`<div class="chart-header"><div><div class="chart-title">Height evolution over insertion batches</div></div><button class="btn-export" id="export-htime">Export PNG</button></div><svg id="htime-svg" style="width:100%"></svg>`;
+  const svg=container.querySelector('#htime-svg');
+  const W=container.clientWidth||600,margin={top:20,right:120,bottom:50,left:55};
+  const H=320,w=W-margin.left-margin.right,h=H-margin.top-margin.bottom;
+  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
+  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const all=results.flatMap(r=>r.heightSamples);
+  if(!all.length){g.append('text').attr('x',w/2).attr('y',h/2).attr('text-anchor','middle').style('font-size','12px').attr('fill','#a8a29e').text('No samples');return;}
+  const x=d3.scaleLinear().domain([1,d3.max(all,d=>d.batch)??1]).range([0,w]);
+  const y=d3.scaleLinear().domain([0,(d3.max(all,d=>d.height)??1)*1.1]).range([h,0]);
+  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#f5f5f4').attr('stroke-dasharray','3,3');});
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');});
+  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');});
+  g.append('text').attr('x',w/2).attr('y',h+40).attr('text-anchor','middle').style('font-size','10px').attr('fill','#78716c').text('Batch (×1k ops)');
+  g.append('text').attr('transform','rotate(-90)').attr('y',-46).attr('x',-h/2).attr('text-anchor','middle').style('font-size','10px').attr('fill','#78716c').text('HEIGHT');
+  const line=d3.line().x(d=>x(d.batch)).y(d=>y(d.height)).curve(d3.curveMonotoneX);
+  for(const r of results){
+    if(r.heightSamples.length<2)continue;
+    g.append('path').datum(r.heightSamples).attr('fill','none').attr('stroke',TREE_COLORS[r.tree]).attr('stroke-width',2.5).attr('d',line);
+  }
+  const leg=g.append('g').attr('transform',`translate(${w+12},0)`);
+  results.forEach((r,i)=>{const row=leg.append('g').attr('transform',`translate(0,${i*20})`);row.append('line').attr('x1',0).attr('x2',18).attr('y1',6).attr('y2',6).attr('stroke',TREE_COLORS[r.tree]).attr('stroke-width',2.5);row.append('text').attr('x',22).attr('y',10).style('font-family','monospace').style('font-size','10px').attr('fill','#44403c').text(TREE_LABELS[r.tree]);});
+  container.querySelector('#export-htime').onclick=()=>downloadSVGAsPNG(svg,'height-over-time.png');
+}
+
+function renderLineChart(container,points,et){
+  container.innerHTML=`<div class="chart-header"><div><div class="chart-title">Throughput (ops/ms) vs N — log scale</div></div><button class="btn-export" id="export-line">Export PNG</button></div><svg id="line-svg" style="width:100%"></svg>`;
+  const svg=container.querySelector('#line-svg');
+  const W=container.clientWidth||600,margin={top:20,right:120,bottom:50,left:60};
+  const H=320,w=W-margin.left-margin.right,h=H-margin.top-margin.bottom;
+  d3.select(svg).attr('viewBox',`0 0 ${W} ${H}`).attr('height',H);
+  const g=d3.select(svg).append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const trees=Object.keys(et).filter(t=>et[t]);
+  const byTree=new Map();for(const t of trees)byTree.set(t,points.filter(p=>p.tree===t));
+  const allN=[...new Set(points.map(p=>p.n))].sort((a,b)=>a-b);
+  const allOps=points.map(p=>p.opsPerMs).filter(v=>isFinite(v)&&v>0);
+  const x=d3.scaleLog().domain([d3.min(allN)??100,d3.max(allN)??100000]).range([0,w]);
+  const y=d3.scaleLinear().domain([0,(d3.max(allOps)??1)*1.1]).range([h,0]);
+  g.append('g').call(d3.axisLeft(y).tickSize(-w).ticks(5).tickFormat(()=>'')).call(gg=>{gg.select('.domain').remove();gg.selectAll('line').attr('stroke','#f5f5f4').attr('stroke-dasharray','3,3');});
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).ticks(5,(v)=>{const n=Number(v);return n>=1000?`${n/1000}k`:String(n);})).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');});
+  g.append('g').call(d3.axisLeft(y).ticks(5)).call(gg=>{gg.select('.domain').attr('stroke','#e7e5e4');gg.selectAll('text').style('font-family','monospace').style('font-size','10px').attr('fill','#57534e');});
+  g.append('text').attr('x',w/2).attr('y',h+40).attr('text-anchor','middle').style('font-size','10px').attr('fill','#78716c').text('N (log)');
+  g.append('text').attr('transform','rotate(-90)').attr('y',-52).attr('x',-h/2).attr('text-anchor','middle').style('font-size','10px').attr('fill','#78716c').text('OPS / ms');
+  const line=d3.line().x(d=>x(d.n)).y(d=>y(d.opsPerMs)).curve(d3.curveMonotoneX);
+  for(const t of trees){
+    const tp=(byTree.get(t)??[]).filter(p=>p.opsPerMs>0);
+    if(tp.length<2)continue;
+    g.append('path').datum(tp).attr('fill','none').attr('stroke',TREE_COLORS[t]).attr('stroke-width',2.5).attr('d',line);
+    g.selectAll(`.dot-${t}`).data(tp).join('circle').attr('cx',d=>x(d.n)).attr('cy',d=>y(d.opsPerMs)).attr('r',3.5).attr('fill',TREE_COLORS[t]);
+  }
+  const leg=g.append('g').attr('transform',`translate(${w+12},0)`);
+  trees.forEach((t,i)=>{const row=leg.append('g').attr('transform',`translate(0,${i*20})`);row.append('line').attr('x1',0).attr('x2',18).attr('y1',6).attr('y2',6).attr('stroke',TREE_COLORS[t]).attr('stroke-width',2.5);row.append('text').attr('x',22).attr('y',10).style('font-family','monospace').style('font-size','10px').attr('fill','#44403c').text(TREE_LABELS[t]);});
+  container.querySelector('#export-line').onclick=()=>downloadSVGAsPNG(svg,'ops-vs-n.png');
+}
+
+function renderTreeDiagram(container,benchResult,selectedTree,et){
+  const enabledList=Object.keys(et).filter(t=>et[t]);
   const btnHtml=enabledList.map(t=>`<button class="tree-btn${t===selectedTree?' active':''}" data-tree="${t}">${TREE_LABELS[t]}</button>`).join('');
   const legendHtml = selectedTree==='redblack'
-    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED node</span><span class="legend-item"><span class="legend-dot" style="background:#18181b"></span>BLACK node</span></div>`
+    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED</span><span class="legend-item"><span class="legend-dot" style="background:#1c1917"></span>BLACK</span></div>`
     : selectedTree==='splay'
-    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span></div>`
+    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root (last splay)</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span></div>`
     : selectedTree==='treap'
-    ? `<div class="legend-row"><span class="legend-item"><span class="legend-dot" style="background:#7c3aed;opacity:0.4"></span>Low priority</span><span class="legend-item"><span class="legend-dot" style="background:#7c3aed"></span>High priority</span><span style="font-size:9px;color:#a1a1aa">Node opacity reflects random heap priority</span></div>`
+    ? `<div class="legend-row"><span style="font-size:9px;color:#78716c">Opacity ∝ heap priority</span></div>`
     : selectedTree==='aatree'
-    ? `<div class="legend-row"><span class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#38bdf8;border-top:2px dashed #38bdf8;margin-right:4px"></span>Horizontal link (same level)</span></div>`
+    ? `<div class="legend-row"><span style="font-size:9px;color:#78716c">Dashed blue = horizontal link (same level)</span></div>`
     : '';
-
   container.innerHTML=`
     <div class="chart-header">
       <div class="tree-btns">${btnHtml}</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <span class="legend-hint">scroll to zoom · drag to pan</span>
+        <span style="font-size:9px;color:#a8a29e">scroll/pinch to zoom · drag to pan</span>
         <button class="btn-export" id="export-tree">Export PNG</button>
       </div>
     </div>
     ${legendHtml}
+    <div id="tree-diagram-lookup" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <input class="live-input" id="diag-lookup-input" type="number" placeholder="Search key…" style="width:120px">
+      <button class="btn-primary" id="diag-lookup-btn" style="padding:6px 14px">Lookup</button>
+      <span id="diag-lookup-result"></span>
+    </div>
     <div id="tree-content"></div>`;
 
   container.querySelectorAll('.tree-btn').forEach(btn=>{
-    btn.onclick=()=>renderTreeDiagram(container,benchResult,btn.dataset.tree,enabledTrees);
+    btn.onclick=()=>renderTreeDiagram(container,benchResult,btn.dataset.tree,et);
   });
 
   const content=container.querySelector('#tree-content');
-  const configN = benchResult.config.n;
+  const diagN=Math.min(benchResult.config.n,DIAG_CAP);
+  const isCapped=benchResult.config.n>DIAG_CAP;
+  const diagKeys=generateKeys(diagN,benchResult.config.pattern,benchResult.config.customData);
+  const t=makeTree(selectedTree);
+  for(const k of diagKeys)t.insert(k);
 
-  // Always rebuild an insert-only tree for the diagram.
-  // This means:
-  //   • For insert benchmarks: we see the exact final state.
-  //   • For lookup/delete benchmarks: we see the fully-populated tree
-  //     (which is the interesting structure anyway — not a partially-deleted one).
-  // If N > DIAG_CAP we sample DIAG_CAP keys from the same sequence and show a
-  // representative sub-tree with a notice.
-  const diagN   = Math.min(configN, DIAG_CAP);
-  const isCapped = configN > DIAG_CAP;
+  const layout=getLayout(selectedTree,t);
 
-  const diagKeys = generateKeys(diagN, benchResult.config.pattern, benchResult.config.customData);
-  const t = makeTree(selectedTree);
-  for (const k of diagKeys) t.insert(k);
-
-  let layout;
-  if (selectedTree === 'avl')           layout = buildAVLLayout(t.root);
-  else if (selectedTree === 'redblack') layout = buildRBLayout(t.root, t.getNIL());
-  else if (selectedTree === 'splay')    layout = buildSplayLayout(t.root);
-  else if (selectedTree === 'treap')    layout = buildTreapLayout(t.root);
-  else if (selectedTree === 'aatree')   layout = buildAALayout(t.root);
-  else                                  layout = buildTwoFourLayout(t.root);
-
-  if (!layout.nodes.length) {
-    content.innerHTML = '<div class="too-large-msg"><p>Empty tree.</p></div>';
-    return;
-  }
-
-  if (isCapped) {
-    const notice = document.createElement('div');
-    notice.style.cssText = 'font-size:9px;color:#a1a1aa;margin-bottom:8px';
-    notice.textContent = `Showing first ${diagN} of ${configN} keys — scroll to zoom, drag to pan.`;
+  if(isCapped){
+    const notice=document.createElement('div');
+    notice.style.cssText='font-size:9px;color:#a8a29e;margin-bottom:8px';
+    notice.textContent=`Showing first ${diagN} of ${benchResult.config.n} keys.`;
     content.appendChild(notice);
   }
 
-  const wrap = document.createElement('div'); wrap.className = 'tree-svg-wrap';
-  const svgEl = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svgEl.id = 'tree-svg'; wrap.appendChild(svgEl); content.appendChild(wrap);
-  drawLayout(svgEl, layout);
-  container.querySelector('#export-tree').onclick = () =>
-    downloadSVGAsPNG(svgEl, `tree-diagram-${selectedTree}.png`);
+  const wrap=document.createElement('div');wrap.className='tree-svg-wrap';
+  const svgEl=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svgEl.id='diag-tree-svg';wrap.appendChild(svgEl);content.appendChild(wrap);
+  drawLayout(svgEl,layout);
+
+  // Lookup wiring
+  let diagLookupOpts = {};
+  const doLookup = () => {
+    const v = parseInt(document.getElementById('diag-lookup-input').value,10);
+    const resEl = document.getElementById('diag-lookup-result');
+    if(isNaN(v)){resEl.textContent='';return;}
+
+    // Get search path
+    let found=false, pathKeys=[];
+    if(selectedTree==='btree'){
+      const r=t.searchPath(v);
+      found=r.found;
+      pathKeys=r.path.flatMap(n=>n.keys.map(String));
+    } else {
+      found=t.search(v);
+      // for BST types collect path manually
+      let cur=t.root;
+      while(cur&&!(cur.isNIL)){
+        if(cur.keys){pathKeys.push(...cur.keys.map(String));if(cur.keys.includes(v)){break;}const i=cur.keys.findIndex(k=>v<k);cur=cur.children[i===-1?cur.children.length-1:i];}
+        else{pathKeys.push(String(cur.key));if(cur.key===v)break;cur=v<cur.key?cur.left:cur.right;}
+      }
+    }
+
+    resEl.innerHTML=found
+      ?`<span class="lookup-result found">Found ${v}</span>`
+      :`<span class="lookup-result not-found">${v} not found</span>`;
+
+    const pathNodeObjects = pathKeys.map(k=>({key:k}));
+    drawLayout(svgEl,layout,{searchPath:pathNodeObjects, foundKey:found?String(v):undefined});
+  };
+  document.getElementById('diag-lookup-btn').onclick=doLookup;
+  document.getElementById('diag-lookup-input').onkeydown=e=>{if(e.key==='Enter')doLookup();};
+  container.querySelector('#export-tree').onclick=()=>downloadSVGAsPNG(svgEl,`tree-diagram-${selectedTree}.png`);
 }
 
-// ─────────────────────────────────────────────
-// CHART: SPLAY HEATMAP
-// ─────────────────────────────────────────────
-function renderHeatmap(container, benchResult){
+function renderHeatmap(container,benchResult){
   const hasSplay=benchResult.config.trees.includes('splay');
   if(!hasSplay){
-    container.innerHTML='<div class="no-splay"><p style="font-size:12px;color:#a1a1aa">Enable Splay tree to see heatmap.</p></div>';
+    container.innerHTML='<div class="no-splay"><p style="font-size:12px;color:#a8a29e">Enable Splay tree to see heatmap.</p></div>';
     return;
   }
-
   container.innerHTML=`
     <div class="chart-header">
-      <div>
-        <div class="chart-title">Splay access frequency heatmap</div>
-        <div class="chart-subtitle">Color intensity = access count. Hot keys migrate toward root.</div>
-      </div>
+      <div><div class="chart-title">Splay access frequency heatmap</div><div class="chart-subtitle">Color intensity = access count</div></div>
       <button class="btn-export" id="export-heat">Export PNG</button>
     </div>
     <div class="heatmap-canvas-wrap"><canvas id="heat-canvas"></canvas></div>`;
-
   const canvas=container.querySelector('#heat-canvas');
   let accessMap=new Map(benchResult.splayAccessCounts);
-
   if(accessMap.size===0){
-    // Simulate
     const config=benchResult.config;
     const baseN=Math.min(config.n,500);
-    let keys=config.customData&&config.customData.length>0?config.customData.slice(0,baseN):Array.from({length:baseN},(_,i)=>i+1);
-    keys=generateKeys(baseN, 'uniform'); // shuffle via generateKeys
+    const keys=generateKeys(baseN,'uniform');
     const tree=new SplayTree();
     for(const k of keys)tree.insert(k);
     const n2=Math.min(config.n,3000);
     const hotKeys=keys.slice(0,Math.max(1,Math.floor(keys.length*0.2)));
-    for(let i=0;i<n2;i++){
-      const k=config.pattern==='skewed'?hotKeys[Math.floor(Math.random()*hotKeys.length)]:keys[Math.floor(Math.random()*keys.length)];
-      tree.search(k);
-    }
+    for(let i=0;i<n2;i++){const k=config.pattern==='skewed'?hotKeys[Math.floor(Math.random()*hotKeys.length)]:keys[Math.floor(Math.random()*keys.length)];tree.search(k);}
     const stk=[tree.root];
     while(stk.length){const nd=stk.pop();if(!nd)continue;if(nd.accessCount>0)accessMap.set(nd.key,nd.accessCount);stk.push(nd.left,nd.right);}
   }
-
-  if(accessMap.size===0){
-    container.querySelector('.heatmap-canvas-wrap').innerHTML='<div style="height:150px;display:flex;align-items:center;justify-content:center;border:1px dashed #d4d4d8"><p style="font-size:12px;color:#a1a1aa">Run with lookup to populate heatmap.</p></div>';
-    return;
-  }
-
+  if(accessMap.size===0){container.querySelector('.heatmap-canvas-wrap').innerHTML='<div style="height:150px;display:flex;align-items:center;justify-content:center;border:1.5px dashed #e7e5e4;border-radius:10px"><p style="font-size:12px;color:#a8a29e">Run with lookup to populate heatmap.</p></div>';return;}
   const MAX_DISPLAY=200;
   let entries=[...accessMap.entries()];
   if(entries.length>MAX_DISPLAY)entries=entries.sort((a,b)=>b[1]-a[1]).slice(0,MAX_DISPLAY);
   entries.sort((a,b)=>a[0]-b[0]);
-
   const cellSize=24,cols=Math.min(entries.length,20),rows=Math.ceil(entries.length/cols),labelH=28;
   const W=cols*cellSize,H=rows*cellSize+labelH;
   canvas.width=W;canvas.height=H;canvas.style.width='100%';canvas.style.height='auto';
@@ -1180,503 +1230,415 @@ function renderHeatmap(container, benchResult){
     const cx=col*cellSize,cy=row*cellSize+labelH;
     ctx.fillStyle=colorScale(count);ctx.fillRect(cx,cy,cellSize-1,cellSize-1);
     if(cellSize>=22){
-      ctx.fillStyle=count>maxCount*0.6?'#fff':'#18181b';
+      ctx.fillStyle=count>maxCount*0.6?'#fff':'#1c1917';
       ctx.font='7px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
-      const lbl=String(key).length>4?String(key).slice(0,3)+'…':String(key);
-      ctx.fillText(lbl,cx+cellSize/2-0.5,cy+cellSize/2-0.5);
+      ctx.fillText(String(key).length>4?String(key).slice(0,3)+'…':String(key),cx+cellSize/2-0.5,cy+cellSize/2-0.5);
     }
   });
-  ctx.fillStyle='#52525b';ctx.font='bold 10px monospace';ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle='#57534e';ctx.font='bold 10px monospace';ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.fillText(`Top ${entries.length} keys by access count`,4,13);
-  const barW=Math.min(W-8,160),barH2=8,barX=W-barW-4,barY=3;
-  for(let i=0;i<barW;i++){ctx.fillStyle=colorScale((i/barW)*maxCount);ctx.fillRect(barX+i,barY,1,barH2);}
-  ctx.strokeStyle='#d4d4d8';ctx.lineWidth=0.5;ctx.strokeRect(barX,barY,barW,barH2);
-  ctx.fillStyle='#71717a';ctx.font='8px monospace';ctx.textAlign='left';ctx.fillText('0',barX,barY+barH2+8);
-  ctx.textAlign='right';ctx.fillText(String(maxCount),barX+barW,barY+barH2+8);
   container.querySelector('#export-heat').onclick=()=>downloadCanvasAsPNG(canvas,'splay-heatmap.png');
 }
 
-// ─────────────────────────────────────────────
-// CHART: INSERTION LOG TABLE
-// ─────────────────────────────────────────────
-function renderInsertionLog(container, benchResult) {
-  const config = benchResult.config;
-  const logData = buildInsertionLog(config);
-  const { rows, treeTypes, totalN } = logData;
-  const isCapped = totalN > LOG_CAP;
-
-  let sortCol = 'step';
-  let sortDir = 'asc';
-  let filterVal = '';
-
-  function sortedRows() {
-    let r = [...rows];
-    if (filterVal) {
-      const q = filterVal.toLowerCase();
-      r = r.filter(row =>
-        String(row.step).includes(q) ||
-        String(row.key).includes(q) ||
-        treeTypes.some(t => String(row.heights[t]).includes(q))
-      );
-    }
-    r.sort((a, b) => {
-      let va, vb;
-      if (sortCol === 'step') { va = a.step; vb = b.step; }
-      else if (sortCol === 'key') { va = a.key; vb = b.key; }
-      else { va = a.heights[sortCol] ?? 0; vb = b.heights[sortCol] ?? 0; }
-      return sortDir === 'asc' ? va - vb : vb - va;
+function renderInsertionLog(container,benchResult){
+  const config=benchResult.config;
+  const logData=buildInsertionLog(config);
+  const{rows,treeTypes,totalN}=logData;
+  const isCapped=totalN>LOG_CAP;
+  let sortCol='step',sortDir='asc',filterVal='';
+  function sortedRows(){
+    let r=[...rows];
+    if(filterVal){const q=filterVal.toLowerCase();r=r.filter(row=>String(row.step).includes(q)||String(row.key).includes(q)||treeTypes.some(t=>String(row.heights[t]).includes(q)));}
+    r.sort((a,b)=>{
+      let va,vb;
+      if(sortCol==='step'){va=a.step;vb=b.step;}
+      else if(sortCol==='key'){va=a.key;vb=b.key;}
+      else{va=a.heights[sortCol]??0;vb=b.heights[sortCol]??0;}
+      return sortDir==='asc'?va-vb:vb-va;
     });
     return r;
   }
-
-  function headerArrow(col) {
-    if (sortCol !== col) return '<span class="sort-arrow"></span>';
-    return `<span class="sort-arrow"></span>`;
-  }
-
-  function thClass(col) {
-    return sortCol === col ? `sort-${sortDir}` : '';
-  }
-
-  function buildTable() {
-    const displayed = sortedRows();
-    const treeHeadCols = treeTypes.map(t =>
-      `<th class="${thClass(t)}" data-col="${t}" title="Height of ${TREE_LABELS[t]} after this insert">
-        <span style="display:inline-flex;align-items:center;gap:4px">
-          <span style="width:6px;height:6px;border-radius:50%;background:${TREE_COLORS[t]};display:inline-block;flex-shrink:0"></span>
-          ${TREE_LABELS[t]} h<span class="sort-arrow"></span>
-        </span>
-      </th>`
-    ).join('');
-
-    const bodyRows = displayed.map((row, idx) => {
-      const bg = idx % 2 === 0 ? '' : ' style="background:#fafafa"';
-      const treeCells = treeTypes.map(t =>
-        `<td class="tree-cell" style="color:${TREE_COLORS[t]};font-weight:600">${row.heights[t] ?? '—'}</td>`
-      ).join('');
+  function thClass(col){return sortCol===col?`sort-${sortDir}`:''}
+  function buildTable(){
+    const displayed=sortedRows();
+    const treeHeadCols=treeTypes.map(t=>`<th class="${thClass(t)}" data-col="${t}"><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:${TREE_COLORS[t]};display:inline-block"></span>${TREE_LABELS[t]} h<span class="sort-arrow"></span></span></th>`).join('');
+    const bodyRows=displayed.map((row,idx)=>{
+      const bg=idx%2===0?'':' style="background:#fafaf9"';
+      const treeCells=treeTypes.map(t=>`<td style="color:${TREE_COLORS[t]};font-weight:600">${row.heights[t]??'—'}</td>`).join('');
       return `<tr${bg}><td class="key-cell">${row.step}</td><td class="key-cell">${row.key}</td>${treeCells}</tr>`;
     }).join('');
-
-    return `
-      <table class="log-table">
-        <thead>
-          <tr>
-            <th class="${thClass('step')}" data-col="step" title="Insertion order (1-indexed)">#<span class="sort-arrow"></span></th>
-            <th class="${thClass('key')}" data-col="key" title="The integer key inserted at this step">Key<span class="sort-arrow"></span></th>
-            ${treeHeadCols}
-          </tr>
-        </thead>
-        <tbody>${bodyRows || '<tr><td colspan="99" style="padding:16px;color:#a1a1aa;text-align:center">No matching rows</td></tr>'}</tbody>
-      </table>`;
+    return `<table class="log-table"><thead><tr><th class="${thClass('step')}" data-col="step">#<span class="sort-arrow"></span></th><th class="${thClass('key')}" data-col="key">Key<span class="sort-arrow"></span></th>${treeHeadCols}</tr></thead><tbody>${bodyRows||'<tr><td colspan="99" style="padding:16px;color:#a8a29e;text-align:center">No matching rows</td></tr>'}</tbody></table>`;
   }
-
-  function render() {
-    const tableWrap = container.querySelector('#log-table-wrap');
-    if (tableWrap) tableWrap.innerHTML = buildTable();
-    container.querySelectorAll('.log-table th[data-col]').forEach(th => {
-      th.onclick = () => {
-        const col = th.dataset.col;
-        if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
-        else { sortCol = col; sortDir = col === 'key' ? 'asc' : 'asc'; }
-        render();
-      };
+  function render(){
+    const tw=container.querySelector('#log-table-wrap');
+    if(tw)tw.innerHTML=buildTable();
+    container.querySelectorAll('.log-table th[data-col]').forEach(th=>{
+      th.onclick=()=>{const col=th.dataset.col;if(sortCol===col){sortDir=sortDir==='asc'?'desc':'asc';}else{sortCol=col;sortDir='asc';}render();};
     });
   }
-
-  const opLabel = { insert: 'Insert', lookup: 'Lookup (pre-built)', delete: 'Delete (pre-built)' }[config.operation] || config.operation;
-  const patternLabel = { uniform: 'Uniform Random', sequential: 'Sequential', skewed: 'Skewed / Zipf' }[config.pattern] || config.pattern;
-
-  container.innerHTML = `
+  container.innerHTML=`
     <div class="chart-header" style="align-items:flex-start">
       <div>
-        <div class="chart-title">Insertion Log — step-by-step key sequence</div>
-        <div class="chart-subtitle" style="margin-top:3px">
-          Shows each key as it was inserted and the resulting height of every active tree at that point.
-          ${isCapped ? `<span style="color:#d97706">Capped at first ${LOG_CAP} of ${totalN} keys.</span>` : `${rows.length} rows total.`}
-        </div>
+        <div class="chart-title">Insertion Log — step-by-step</div>
+        <div class="chart-subtitle">${isCapped?`Capped at first ${LOG_CAP} of ${totalN} keys.`:`${rows.length} rows total.`}</div>
       </div>
     </div>
-    <div style="font-size:9px;color:#71717a;background:#f4f4f5;border:1px solid #e4e4e7;padding:8px 11px;margin-bottom:12px;line-height:1.55">
-      <strong style="color:#18181b">Operation:</strong> ${opLabel} &nbsp;·&nbsp;
-      <strong style="color:#18181b">Pattern:</strong> ${patternLabel} &nbsp;·&nbsp;
-      <strong style="color:#18181b">N:</strong> ${totalN.toLocaleString()}
-      ${config.customData ? `&nbsp;·&nbsp;<strong style="color:#18181b">Custom data</strong> (${config.customData.length} keys provided)` : ''}
-      <br>
-      <span style="color:#a1a1aa">The heights shown are <em>post-insert</em> — what the tree looks like after each key lands. Tree heights grow logarithmically for balanced trees and can spike for Splay during sequential inserts.</span>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <input class="log-filter" id="log-filter" type="text" placeholder="Filter…" style="min-width:200px">
+      <span style="font-size:9px;color:#a8a29e">Click column headers to sort</span>
     </div>
-    <div class="log-controls">
-      <input class="log-filter" id="log-filter" type="text" placeholder="Filter by step, key, or height…" style="min-width:220px">
-      <span style="font-size:9px;color:#a1a1aa">Click column headers to sort ↑↓</span>
-    </div>
-    <div class="log-wrap" id="log-table-wrap"></div>
-    <div class="log-note">
-      Heights are measured after every single insert. For <strong>Lookup</strong> and <strong>Delete</strong> benchmarks the tree is re-built from scratch here using the same key sequence, so heights reflect an insert-only run.
-    </div>`;
-
+    <div class="log-wrap" id="log-table-wrap"></div>`;
   render();
-
-  container.querySelector('#log-filter').addEventListener('input', e => {
-    filterVal = e.target.value.trim();
-    render();
-  });
+  container.querySelector('#log-filter').addEventListener('input',e=>{filterVal=e.target.value.trim();render();});
 }
 
-// ─────────────────────────────────────────────
-// LIVE INSERT — animated step-by-step insertion
-// ─────────────────────────────────────────────
-
-const liveState = {
-  trees: {},          // type → tree instance
-  insertedKeys: [],
-  selectedType: 'avl',
-  animTimer: null,
-  isPlaying: false,
-  autoQueue: [],      // keys queued for auto-play
-  speedMs: 600,       // ms between auto inserts
-};
-
-function _liveGetLayout(type) {
-  const t = liveState.trees[type];
-  if (!t) return { nodes: [], edges: [], size: 0 };
-  if (type === 'avl')      return buildAVLLayout(t.root);
-  if (type === 'redblack') return buildRBLayout(t.root, t.getNIL());
-  if (type === 'splay')    return buildSplayLayout(t.root);
-  if (type === 'twofour')  return buildTwoFourLayout(t.root);
-  if (type === 'treap')    return buildTreapLayout(t.root);
-  if (type === 'aatree')   return buildAALayout(t.root);
-  return { nodes: [], edges: [], size: 0 };
-}
-
-function _liveRedrawSVG(newKey) {
-  const svgEl = document.getElementById('live-tree-svg');
-  if (!svgEl) return;
-  const layout = _liveGetLayout(liveState.selectedType);
-  if (!layout.nodes.length) {
-    d3.select(svgEl).selectAll('*').remove();
-    svgEl.setAttribute('viewBox','0 0 400 200');
-    svgEl.setAttribute('height','200');
-    d3.select(svgEl).append('text').attr('x',200).attr('y',100)
-      .attr('text-anchor','middle').style('font-family','monospace')
-      .style('font-size','12px').attr('fill','#a1a1aa').text('Empty — insert a key to begin');
-    return;
-  }
-  drawLayout(svgEl, layout, newKey !== undefined ? String(newKey) : undefined);
-}
-
-function _liveUpdateStatus() {
-  const bar = document.getElementById('live-status-bar');
-  if (!bar) return;
-  const type = liveState.selectedType;
-  const t = liveState.trees[type];
-  const h = t ? t.height() : 0;
-  const sz = t ? t.size() : 0;
-  bar.innerHTML = `
-    <span class="live-status-item"><strong>Tree:</strong> ${TREE_LABELS[type]||type}</span>
-    <span class="live-status-item"><strong>Nodes:</strong> ${sz}</span>
-    <span class="live-status-item"><strong>Height:</strong> ${h}</span>
-    <span class="live-status-item"><strong>Keys inserted:</strong> ${liveState.insertedKeys.length}</span>`;
-}
-
-function _liveUpdateBadges(newKey) {
-  const wrap = document.getElementById('live-key-badges');
-  if (!wrap) return;
-  const keys = liveState.insertedKeys.slice(-30);
-  wrap.innerHTML = keys.map((k,i) =>
-    `<span class="live-key-badge${i===keys.length-1&&newKey!==undefined?' new':''}">${k}</span>`
-  ).join('');
-}
-
-function _liveInsertKey(key) {
-  for (const type of Object.keys(liveState.trees)) {
-    liveState.trees[type].insert(key);
-  }
-  liveState.insertedKeys.push(key);
-  _liveRedrawSVG(key);
-  _liveUpdateStatus();
-  _liveUpdateBadges(key);
-  setTimeout(() => {
-    const badge = document.querySelector('.live-key-badge.new');
-    if (badge) badge.classList.remove('new');
-  }, 600);
-}
-
-function _liveStopAuto() {
-  if (liveState.animTimer) { clearTimeout(liveState.animTimer); liveState.animTimer = null; }
-  liveState.isPlaying = false;
-  liveState.autoQueue = [];
-  const btn = document.getElementById('live-btn-play');
-  if (btn) { btn.textContent = 'Auto-Play'; btn.disabled = false; }
-  const btnStep = document.getElementById('live-btn-step');
-  if (btnStep) btnStep.disabled = false;
-}
-
-function _liveAutoStep() {
-  if (!liveState.isPlaying || !liveState.autoQueue.length) {
-    _liveStopAuto();
-    return;
-  }
-  const key = liveState.autoQueue.shift();
-  _liveInsertKey(key);
-  liveState.animTimer = setTimeout(_liveAutoStep, liveState.speedMs);
-}
-
-function renderLiveInsert(container, enabledTrees) {
-  const enabledList = Object.keys(enabledTrees).filter(t => enabledTrees[t]);
-  if (!enabledList.length) {
-    container.innerHTML = '<div style="padding:24px;color:#a1a1aa;font-size:12px">Enable at least one tree in the sidebar, then run a benchmark first.</div>';
-    return;
-  }
-
-  // Initialize trees lazily — preserve state if re-rendering same tree set
-  const existingTypes = new Set(Object.keys(liveState.trees));
-  for (const t of enabledList) {
-    if (!existingTypes.has(t)) liveState.trees[t] = makeTree(t);
-  }
-  for (const t of [...existingTypes]) {
-    if (!enabledList.includes(t)) delete liveState.trees[t];
-  }
-  if (!liveState.trees[liveState.selectedType]) {
-    liveState.selectedType = enabledList[0];
-  }
-
-  const tabHtml = enabledList.map(t =>
-    `<button class="live-tree-tab${t===liveState.selectedType?' active':''}" data-livetype="${t}">${TREE_LABELS[t]||t}</button>`
-  ).join('');
-
-  const legendHtml = liveState.selectedType==='redblack'
-    ? `<div class="legend-row" style="margin-bottom:6px"><span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED</span><span class="legend-item"><span class="legend-dot" style="background:#18181b"></span>BLACK</span></div>`
-    : liveState.selectedType==='splay'
-    ? `<div class="legend-row" style="margin-bottom:6px"><span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span></div>`
-    : liveState.selectedType==='treap'
-    ? `<div class="legend-row" style="margin-bottom:6px"><span style="font-size:9px;color:#71717a">Node opacity = random priority (higher = more opaque)</span></div>`
-    : liveState.selectedType==='aatree'
-    ? `<div class="legend-row" style="margin-bottom:6px"><span style="font-size:9px;color:#71717a">Dashed blue edge = horizontal link (same level)</span></div>`
-    : '';
-
-  container.innerHTML = `
-    <div class="chart-header" style="margin-bottom:10px">
-      <div>
-        <div class="chart-title">Live Insert — animated node-by-node insertion</div>
-        <div class="chart-subtitle">Insert keys one at a time and watch the tree rebalance in real time.</div>
-      </div>
-    </div>
-
-    <div class="live-controls">
-      <input class="live-input" id="live-key-input" type="number" placeholder="Key (int)" min="-999999" max="999999" step="1">
-      <button class="btn-live" id="live-btn-insert">Insert</button>
-      <button class="btn-live-secondary" id="live-btn-step">Random Step</button>
-      <button class="btn-live" id="live-btn-play" style="background:#16a34a;border-color:#16a34a">Auto-Play</button>
-      <button class="btn-live-secondary" id="live-btn-reset">Reset All Trees</button>
-    </div>
-
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
-      <div class="live-speed-row">
-        <span>Speed:</span>
-        <input type="range" id="live-speed" min="100" max="2000" step="100" value="${liveState.speedMs}" style="width:100px">
-        <span id="live-speed-label">${liveState.speedMs}ms</span>
-      </div>
-      <div style="font-size:9px;color:#a1a1aa">Auto-Play inserts random keys continuously at chosen speed.</div>
-    </div>
-
-    <div class="live-tree-tabs">${tabHtml}</div>
-    ${legendHtml}
-    <div class="live-status-bar" id="live-status-bar"></div>
-
-    <div style="font-size:9px;color:#71717a;margin-bottom:6px">
-      Recent keys (newest = dark):
-    </div>
-    <div class="live-key-history" id="live-key-badges"></div>
-
-    <div class="live-svg-area tree-svg-wrap">
-      <svg id="live-tree-svg" style="width:100%;display:block"></svg>
-    </div>`;
-
-  // Wire up events
-  container.querySelectorAll('.live-tree-tab').forEach(btn => {
-    btn.onclick = () => {
-      liveState.selectedType = btn.dataset.livetype;
-      renderLiveInsert(container, enabledTrees);
-      _liveRedrawSVG();
-    };
-  });
-
-  document.getElementById('live-btn-insert').onclick = () => {
-    const inp = document.getElementById('live-key-input');
-    const v = parseInt(inp.value, 10);
-    if (isNaN(v)) { inp.focus(); return; }
-    _liveInsertKey(v);
-    inp.value = '';
-    inp.focus();
-  };
-
-  document.getElementById('live-key-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('live-btn-insert').click();
-  });
-
-  document.getElementById('live-btn-step').onclick = () => {
-    const key = Math.floor(Math.random() * 999) + 1;
-    _liveInsertKey(key);
-  };
-
-  document.getElementById('live-btn-play').onclick = () => {
-    if (liveState.isPlaying) { _liveStopAuto(); return; }
-    liveState.isPlaying = true;
-    const btn = document.getElementById('live-btn-play');
-    btn.textContent = 'Stop';
-    document.getElementById('live-btn-step').disabled = true;
-    // Queue 200 random keys
-    liveState.autoQueue = Array.from({length: 200}, () => Math.floor(Math.random() * 9999) + 1);
-    _liveAutoStep();
-  };
-
-  document.getElementById('live-btn-reset').onclick = () => {
-    _liveStopAuto();
-    liveState.insertedKeys = [];
-    for (const t of Object.keys(liveState.trees)) liveState.trees[t] = makeTree(t);
-    _liveUpdateStatus();
-    _liveUpdateBadges();
-    _liveRedrawSVG();
-  };
-
-  document.getElementById('live-speed').oninput = e => {
-    liveState.speedMs = parseInt(e.target.value, 10);
-    document.getElementById('live-speed-label').textContent = `${liveState.speedMs}ms`;
-  };
-
-  _liveUpdateStatus();
-  _liveUpdateBadges();
-  _liveRedrawSVG();
-}
-
-// ─────────────────────────────────────────────
-// APP STATE
-// ─────────────────────────────────────────────
-let appState = {
-  benchResult: null,
+// ─────────────────────────────────────────────────────────────
+// BENCHMARK APP STATE
+// ─────────────────────────────────────────────────────────────
+let benchState = {
+  result: null,
   sweepPoints: null,
   activeTab: 'bar',
   selectedTree: 'avl',
-  enabledTrees: {avl:true,redblack:true,splay:true,twofour:true,treap:true,aatree:true},
 };
 
 function getConfig(){
   const n=parseInt(document.getElementById('n-slider').value);
   const pattern=document.querySelector('input[name=pattern]:checked')?.value||'uniform';
   const operation=document.querySelector('input[name=operation]:checked')?.value||'insert';
-  const trees=[];
-  if(document.getElementById('cb-avl').checked)trees.push('avl');
-  if(document.getElementById('cb-redblack').checked)trees.push('redblack');
-  if(document.getElementById('cb-splay').checked)trees.push('splay');
-  if(document.getElementById('cb-twofour').checked)trees.push('twofour');
-  if(document.getElementById('cb-treap').checked)trees.push('treap');
-  if(document.getElementById('cb-aatree').checked)trees.push('aatree');
+  const trees=ALL_TREES.map(t=>t.id).filter(id=>enabledTrees[id]);
   const raw=document.getElementById('custom-input').value.trim();
   const customData=raw?raw.split(/[\s,;]+/).map(s=>parseFloat(s)).filter(n=>!isNaN(n)):undefined;
   return{n,pattern,operation,trees,customData};
 }
 
-function setVisible(id, vis){ document.getElementById(id).style.display=vis?'':'none'; }
+function showError(msg){const b=document.getElementById('error-box');b.textContent=msg;b.style.display='';}
+function clearError(){document.getElementById('error-box').style.display='none';}
 
-function renderSummary(results){
-  const g=document.getElementById('summary-grid');
-  g.innerHTML=results.map(r=>`
-    <div class="summary-card">
-      <div class="summary-bar" style="background:${TREE_COLORS[r.tree]}"></div>
-      <div class="summary-label">${TREE_LABELS[r.tree]}</div>
-      <div class="summary-value">${r.opsPerMs.toFixed(0)}<span style="font-size:11px;font-weight:400;color:#71717a;margin-left:4px">ops/ms</span></div>
-      <div class="summary-sub">h=${r.finalHeight} · ${r.totalMs.toFixed(1)}ms</div>
-    </div>`).join('');
-}
-
-function renderActiveTab(){
-  const{benchResult,sweepPoints,activeTab,selectedTree,enabledTrees}=appState;
-  if(!benchResult && activeTab !== 'live') return;
+function renderBenchTab(){
+  const{result,sweepPoints,activeTab,selectedTree}=benchState;
+  if(!result)return;
+  const et=Object.fromEntries(result.config.trees.map(t=>[t,true]));
   const panel=document.getElementById('chart-panel');
   switch(activeTab){
-    case 'bar': renderBarChart(panel,benchResult.results); break;
-    case 'heighttime': renderHeightChart(panel,benchResult.results); break;
-    case 'line': if(sweepPoints)renderLineChart(panel,sweepPoints,enabledTrees); break;
-    case 'tree': renderTreeDiagram(panel,benchResult,selectedTree,enabledTrees); break;
-    case 'heatmap': renderHeatmap(panel,benchResult); break;
-    case 'log': renderInsertionLog(panel,benchResult); break;
-    case 'live': renderLiveInsert(panel,enabledTrees); break;
+    case 'bar': renderBarChart(panel,result.results); break;
+    case 'heighttime': renderHeightChart(panel,result.results); break;
+    case 'line': if(sweepPoints)renderLineChart(panel,sweepPoints,et); break;
+    case 'tree': renderTreeDiagram(panel,result,selectedTree,et); break;
+    case 'heatmap': renderHeatmap(panel,result); break;
+    case 'log': renderInsertionLog(panel,result); break;
   }
 }
 
-function setActiveTab(tab){
-  appState.activeTab=tab;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  renderActiveTab();
+function setBenchTab(tab){
+  benchState.activeTab=tab;
+  document.querySelectorAll('#bench-subtab-bar .subtab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  renderBenchTab();
 }
 
-// Tab clicks
-document.getElementById('tab-bar').querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.onclick=()=>{
-    const tab=btn.dataset.tab;
-    // Live Insert can be opened without running a benchmark first
-    if(tab==='live'){
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-      appState.activeTab=tab;
-      setVisible('empty-state',false);
-      setVisible('results-area',true);
-      const panel=document.getElementById('chart-panel');
-      renderLiveInsert(panel,appState.enabledTrees);
-      return;
-    }
-    setActiveTab(tab);
-  };
+document.getElementById('bench-subtab-bar').querySelectorAll('.subtab-btn').forEach(btn=>{
+  btn.onclick=()=>setBenchTab(btn.dataset.tab);
 });
 
-// N slider
 document.getElementById('n-slider').addEventListener('input',e=>{
   const v=parseInt(e.target.value);
-  document.getElementById('n-display').textContent=v>=1000?`${(v/1000).toFixed(0)}k`:String(v);
+  const disp=v>=1000?`${(v/1000).toFixed(v%1000===0?0:1)}k`:String(v);
+  document.getElementById('n-display').textContent=disp.replace('.',' ');
+  document.getElementById('n-display').textContent=v>=1000?`${(v/1000).toFixed(0)} k`:String(v);
 });
-
-// Custom data count
 document.getElementById('custom-input').addEventListener('input',e=>{
   const v=e.target.value.trim();
   const cnt=v?v.split(/[\s,;]+/).filter(s=>s&&!isNaN(Number(s))).length:0;
   document.getElementById('custom-count').textContent=cnt>0?`${cnt} numbers detected`:'';
 });
 
-// Error box
-function showError(msg){ const b=document.getElementById('error-box'); b.textContent=msg; setVisible('error-box',true); }
-function clearError(){ setVisible('error-box',false); }
-
-// RUN
 document.getElementById('btn-run').addEventListener('click',async()=>{
   const config=getConfig();
   if(config.trees.length===0){showError('Select at least one tree.');return;}
   clearError();
-  setVisible('empty-state',false);
-  setVisible('loading-state',true);
-  setVisible('results-area',false);
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('loading-state').style.display='';
+  document.getElementById('results-area').style.display='none';
   document.getElementById('btn-run').disabled=true;
   await new Promise(r=>setTimeout(r,0));
   try{
-    const benchResult=runBenchmark(config);
+    const result=runBenchmark(config);
     await new Promise(r=>setTimeout(r,0));
-    const enabledList=config.trees;
     const nSweep=N_SWEEP.filter(v=>v<=Math.max(config.n,5000));
-    const sweepPoints=runSweep(nSweep,config.pattern,config.operation,enabledList);
-    const enabledTrees={avl:false,redblack:false,splay:false,twofour:false,treap:false,aatree:false};
-    for(const t of enabledList)enabledTrees[t]=true;
-    appState={...appState,benchResult,sweepPoints,enabledTrees};
-    // Pick first enabled tree for diagram
-    appState.selectedTree=enabledList[0]||'avl';
-    setVisible('loading-state',false);
-    setVisible('results-area',true);
-    renderSummary(benchResult.results);
-    setActiveTab(appState.activeTab);
+    const sweepPoints=runSweep(nSweep,config.pattern,config.operation,config.trees);
+    benchState={...benchState,result,sweepPoints};
+    benchState.selectedTree=config.trees[0]||'avl';
+    document.getElementById('loading-state').style.display='none';
+    document.getElementById('results-area').style.display='';
+    // summary
+    document.getElementById('summary-grid').innerHTML=result.results.map(r=>`
+      <div class="summary-card">
+        <div class="summary-bar" style="background:${TREE_COLORS[r.tree]}"></div>
+        <div class="summary-label">${TREE_LABELS[r.tree]}</div>
+        <div class="summary-value">${r.opsPerMs.toFixed(0)}<span style="font-size:10px;font-weight:400;color:#78716c;margin-left:4px">ops/ms</span></div>
+        <div class="summary-sub">h=${r.finalHeight} · ${r.totalMs.toFixed(1)} ms</div>
+      </div>`).join('');
+    setBenchTab(benchState.activeTab);
   }catch(err){
     showError(err.message||String(err));
-    setVisible('loading-state',false);
-    setVisible('empty-state',true);
+    document.getElementById('loading-state').style.display='none';
+    document.getElementById('empty-state').style.display='';
     console.error(err);
   }
   document.getElementById('btn-run').disabled=false;
 });
+
+// ─────────────────────────────────────────────────────────────
+// LIVE INSERT MODE
+// ─────────────────────────────────────────────────────────────
+const liveState = {
+  trees: {},
+  insertedKeys: [],
+  selectedType: 'avl',
+  animTimer: null,
+  isPlaying: false,
+  autoQueue: [],
+  speedMs: 500,
+  dirty: false,
+  lookupKey: null,
+  lookupResult: null,
+  searchPath: [],
+};
+
+function liveEnabledList(){
+  return ALL_TREES.map(t=>t.id).filter(id=>enabledTrees[id]);
+}
+
+function liveEnsureTrees(){
+  const list=liveEnabledList();
+  // add new trees
+  for(const t of list) if(!liveState.trees[t]) liveState.trees[t]=makeTree(t);
+  // remove disabled trees
+  for(const t of Object.keys(liveState.trees)) if(!list.includes(t)) delete liveState.trees[t];
+  if(!liveState.trees[liveState.selectedType]) liveState.selectedType=list[0]||'avl';
+}
+
+function liveRedrawSVG(opts={}){
+  const svgEl=document.getElementById('live-tree-svg');
+  if(!svgEl)return;
+  const t=liveState.trees[liveState.selectedType];
+  if(!t){return;}
+  const layout=getLayout(liveState.selectedType,t);
+  drawLayout(svgEl,layout,opts);
+}
+
+function liveUpdateStatusBar(){
+  const bar=document.getElementById('live-status-bar');
+  if(!bar)return;
+  const t=liveState.trees[liveState.selectedType];
+  bar.innerHTML=`
+    <span class="live-status-item"><strong>${TREE_LABELS[liveState.selectedType]||liveState.selectedType}</strong></span>
+    <span class="live-status-item">Nodes: <strong>${t?t.size():0}</strong></span>
+    <span class="live-status-item">Height: <strong>${t?t.height():0}</strong></span>
+    <span class="live-status-item">Inserted: <strong>${liveState.insertedKeys.length}</strong></span>`;
+}
+
+function liveUpdateBadges(newKey){
+  const wrap=document.getElementById('live-key-badges');
+  if(!wrap)return;
+  const keys=liveState.insertedKeys.slice(-40);
+  wrap.innerHTML=keys.map((k,i)=>{
+    const isNew=i===keys.length-1&&newKey!==undefined&&k===newKey;
+    const isSearch=liveState.lookupKey!==undefined&&k===liveState.lookupKey;
+    return `<span class="live-key-badge${isNew?' new-badge':isSearch?' searched':''}">${k}</span>`;
+  }).join('');
+}
+
+function liveInsertKey(key){
+  for(const type of Object.keys(liveState.trees)) liveState.trees[type].insert(key);
+  liveState.insertedKeys.push(key);
+  liveState.lookupKey=null;liveState.lookupResult=null;liveState.searchPath=[];
+  liveRedrawSVG({newKey:String(key)});
+  liveUpdateStatusBar();
+  liveUpdateBadges(key);
+  setTimeout(()=>{const b=document.querySelector('.live-key-badge.new-badge');if(b)b.classList.remove('new-badge');},500);
+}
+
+function liveDoLookup(){
+  const inp=document.getElementById('live-lookup-input');
+  if(!inp)return;
+  const v=parseInt(inp.value,10);
+  const resEl=document.getElementById('live-lookup-result');
+  if(isNaN(v)){if(resEl)resEl.innerHTML='';return;}
+  liveState.lookupKey=v;
+
+  const t=liveState.trees[liveState.selectedType];
+  if(!t){return;}
+
+  let found=false, pathNodes=[];
+  if(liveState.selectedType==='btree'){
+    const r=t.searchPath(v);
+    found=r.found;
+    pathNodes=r.path.flatMap(n=>n.keys.map(k=>({key:String(k)})));
+  } else {
+    found=t.search(v);
+    // collect path
+    let cur=t.root;
+    while(cur&&!(cur.isNIL)){
+      if(cur.keys){
+        pathNodes.push(...cur.keys.map(k=>({key:String(k)})));
+        if(cur.keys.includes(v)){break;}
+        const idx=cur.keys.findIndex(k=>v<k);
+        cur=cur.children[idx===-1?cur.children.length-1:idx];
+      } else {
+        pathNodes.push({key:String(cur.key)});
+        if(cur.key===v)break;
+        cur=v<cur.key?cur.left:cur.right;
+      }
+    }
+  }
+
+  liveState.lookupResult=found;
+  liveState.searchPath=pathNodes;
+
+  if(resEl) resEl.innerHTML=found
+    ?`<span class="lookup-result found">Found ${v}</span>`
+    :`<span class="lookup-result not-found">${v} not found</span>`;
+
+  liveRedrawSVG({searchPath:pathNodes, foundKey:found?String(v):undefined});
+  liveUpdateBadges();
+}
+
+function liveStopAuto(){
+  if(liveState.animTimer){clearTimeout(liveState.animTimer);liveState.animTimer=null;}
+  liveState.isPlaying=false;liveState.autoQueue=[];
+  const btn=document.getElementById('live-btn-play');
+  if(btn){btn.textContent='Auto-Play';btn.className='btn-primary green';}
+  const btnStep=document.getElementById('live-btn-step');
+  if(btnStep)btnStep.disabled=false;
+}
+
+function liveAutoStep(){
+  if(!liveState.isPlaying||!liveState.autoQueue.length){liveStopAuto();return;}
+  liveInsertKey(liveState.autoQueue.shift());
+  liveState.animTimer=setTimeout(liveAutoStep,liveState.speedMs);
+}
+
+function renderLiveSubtabs(){
+  const list=liveEnabledList();
+  const bar=document.getElementById('live-subtab-bar');
+  bar.innerHTML=list.map(t=>`<button class="subtab-btn${t===liveState.selectedType?' active':''}" data-livetype="${t}">${TREE_LABELS[t]}</button>`).join('');
+  bar.querySelectorAll('.subtab-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      liveState.selectedType=btn.dataset.livetype;
+      bar.querySelectorAll('.subtab-btn').forEach(b=>b.classList.toggle('active',b.dataset.livetype===liveState.selectedType));
+      liveUpdateStatusBar();
+      const sp=liveState.searchPath.length?{searchPath:liveState.searchPath,foundKey:liveState.lookupResult?String(liveState.lookupKey):undefined}:{};
+      liveRedrawSVG(sp);
+      // update legend
+      const legEl=document.getElementById('live-legend');
+      if(legEl)legEl.innerHTML=liveGetLegend();
+    };
+  });
+}
+
+function liveGetLegend(){
+  const t=liveState.selectedType;
+  if(t==='redblack')return`<span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>RED</span><span class="legend-item"><span class="legend-dot" style="background:#1c1917"></span>BLACK</span>`;
+  if(t==='splay')return`<span class="legend-item"><span class="legend-dot" style="background:#15803d"></span>Root</span><span class="legend-item"><span class="legend-dot" style="background:#86efac"></span>Recently accessed</span>`;
+  if(t==='treap')return`<span style="font-size:9px;color:#78716c">Opacity ∝ heap priority</span>`;
+  if(t==='aatree')return`<span style="font-size:9px;color:#78716c">Dashed blue = horizontal link (same level)</span>`;
+  return '';
+}
+
+function renderLiveMode(){
+  liveEnsureTrees();
+  renderLiveSubtabs();
+
+  const content=document.getElementById('live-content');
+  content.innerHTML=`
+    <div class="live-layout">
+      <!-- Controls bar -->
+      <div class="live-controls-bar">
+        <input class="live-input" id="live-key-input" type="number" placeholder="Key (int)">
+        <button class="btn-primary" id="live-btn-insert">Insert</button>
+        <button class="btn-secondary" id="live-btn-step">Random</button>
+        <button class="btn-primary green" id="live-btn-play">Auto-Play</button>
+        <button class="btn-secondary" id="live-btn-reset">Reset</button>
+        <div class="live-speed-row" style="margin-left:auto">
+          <span>Speed</span>
+          <input type="range" id="live-speed" min="80" max="2000" step="80" value="${liveState.speedMs}">
+          <span id="live-speed-label" style="min-width:34px">${liveState.speedMs}ms</span>
+        </div>
+      </div>
+
+      <!-- Lookup bar -->
+      <div class="lookup-panel">
+        <span style="font-size:10px;font-weight:600;color:#78716c;text-transform:uppercase;letter-spacing:0.08em">Lookup</span>
+        <input class="live-input" id="live-lookup-input" type="number" placeholder="Search key…">
+        <button class="btn-primary" id="live-lookup-btn" style="background:#f59e0b;border-color:#f59e0b">Search</button>
+        <span id="live-lookup-result"></span>
+        <span style="font-size:9px;color:#a8a29e;margin-left:4px">Highlights search path in amber, found node in green</span>
+      </div>
+
+      <!-- Status + badges -->
+      <div style="background:#fff;border:1.5px solid #e7e5e4;padding:12px 16px;border-radius:12px;display:flex;flex-direction:column;gap:8px">
+        <div class="live-status-bar" id="live-status-bar"></div>
+        <div style="font-size:9px;color:#a8a29e">Recent keys:</div>
+        <div class="live-key-history" id="live-key-badges"></div>
+      </div>
+
+      <!-- Tree diagram -->
+      <div class="chart-panel" style="padding:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div class="legend-row" id="live-legend" style="margin:0">${liveGetLegend()}</div>
+          <span style="font-size:9px;color:#a8a29e">scroll/pinch · drag to pan</span>
+        </div>
+        <div class="tree-svg-wrap">
+          <svg id="live-tree-svg" style="width:100%;display:block"></svg>
+        </div>
+      </div>
+    </div>`;
+
+  // Wire events
+  document.getElementById('live-btn-insert').onclick=()=>{
+    const inp=document.getElementById('live-key-input');
+    const v=parseInt(inp.value,10);
+    if(isNaN(v)){inp.focus();return;}
+    liveInsertKey(v);inp.value='';inp.focus();
+  };
+  document.getElementById('live-key-input').onkeydown=e=>{if(e.key==='Enter')document.getElementById('live-btn-insert').click();};
+  document.getElementById('live-btn-step').onclick=()=>liveInsertKey(Math.floor(Math.random()*999)+1);
+  document.getElementById('live-btn-play').onclick=()=>{
+    if(liveState.isPlaying){liveStopAuto();return;}
+    liveState.isPlaying=true;
+    const btn=document.getElementById('live-btn-play');
+    btn.textContent='Stop';btn.className='btn-primary red-btn';
+    document.getElementById('live-btn-step').disabled=true;
+    liveState.autoQueue=Array.from({length:300},()=>Math.floor(Math.random()*9999)+1);
+    liveAutoStep();
+  };
+  document.getElementById('live-btn-reset').onclick=()=>{
+    liveStopAuto();
+    liveState.insertedKeys=[];
+    liveState.lookupKey=null;liveState.lookupResult=null;liveState.searchPath=[];
+    for(const t of Object.keys(liveState.trees))liveState.trees[t]=makeTree(t);
+    liveUpdateStatusBar();liveUpdateBadges();liveRedrawSVG();
+    const res=document.getElementById('live-lookup-result');if(res)res.innerHTML='';
+  };
+  document.getElementById('live-speed').oninput=e=>{
+    liveState.speedMs=parseInt(e.target.value,10);
+    document.getElementById('live-speed-label').textContent=`${liveState.speedMs}ms`;
+  };
+  document.getElementById('live-lookup-btn').onclick=liveDoLookup;
+  document.getElementById('live-lookup-input').onkeydown=e=>{if(e.key==='Enter')liveDoLookup();};
+
+  liveUpdateStatusBar();
+  liveUpdateBadges();
+  liveRedrawSVG();
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+buildTreeCheckboxes();
+// On init, show run button (bench mode)
+document.getElementById('sb-live-controls').style.display='none';
 </script>
 </body>
 </html>
