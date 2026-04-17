@@ -96,18 +96,22 @@ function spSplayOneStep(x) {
   const zz = g ? g.key : null;
 
   if (!g) {
-    const op = x === p.left ? "zig (right rotate at parent)" : "zig (left rotate at parent)";
-    const side = x === p.left ? "x is the left child of the root parent" : "x is the right child of the root parent";
+    const isZig = x === p.left;
+    const op = isZig ? "zig" : "zag";
+    const opLabel = isZig ? "zig at y (parent is root)" : "zag at y (parent is root)";
+    const side = isZig
+      ? "x is the left child of the root parent"
+      : "x is the right child of the root parent";
     const alignment = "N/A — there is no grandparent (parent is the tree root).";
-    if (x === p.left) spRotateRight(p);
+    if (isZig) spRotateRight(p);
     else spRotateLeft(p);
     return {
       done: false,
-      op: "zig",
-      opLabel: op,
+      op,
+      opLabel,
       alignment,
       sameSide: null,
-      reason: `${side}. Only one rotation is needed to move x toward the root.`,
+      reason: `${side}. A single ${op} at y moves x toward the root (no grandparent, so not zig-zig or zig-zag).`,
       x: zx,
       y: yy,
       z: null,
@@ -124,38 +128,38 @@ function spSplayOneStep(x) {
   if (sameSide) {
     op = "zig-zig";
     if (x === p.left) {
-      opLabel = "zig-zig (two right rotations)";
+      opLabel = "zig-zig (zig at z, then zig at parent of x)";
       alignment =
         "Same side: x is the left child of y, and y is the left child of z (left–left chain).";
       reason =
-        "Both x and y lie on the same side of their parents (both left). The textbook zig-zig case applies: rotate twice along the same direction.";
+        "Both x and y lie on the same side of their parents (both left). Zig-zig applies: two zigs in a row along that spine.";
       spRotateRight(g);
       spRotateRight(x.parent);
     } else {
-      opLabel = "zig-zig (two left rotations)";
+      opLabel = "zig-zig (zag at z, then zag at parent of x)";
       alignment =
         "Same side: x is the right child of y, and y is the right child of z (right–right chain).";
       reason =
-        "Both x and y lie on the same side of their parents (both right). This is the symmetric zig-zig case.";
+        "Both x and y lie on the same side of their parents (both right). Symmetric zig-zig: two zags in a row.";
       spRotateLeft(g);
       spRotateLeft(x.parent);
     }
   } else {
     op = "zig-zag";
     if (x === p.left) {
-      opLabel = "zig-zag (right rotate at y, then left rotate at former grandparent)";
+      opLabel = "zig-zag (zig at y, then zag at former grandparent)";
       alignment =
         "Opposite sides: x is the left child of y, but y is the right child of z (right–left pattern).";
       reason =
-        "x and y are on opposite sides relative to z, so we rotate x through y first, then through the grandparent.";
+        "x and y are on opposite sides relative to z: first a zig at y to lift x, then a zag at the former grandparent.";
       spRotateRight(p);
       spRotateLeft(x.parent);
     } else {
-      opLabel = "zig-zag (left rotate at y, then right rotate at former grandparent)";
+      opLabel = "zig-zag (zag at y, then zig at former grandparent)";
       alignment =
         "Opposite sides: x is the right child of y, but y is the left child of z (left–right pattern).";
       reason =
-        "Opposite-side configuration requires a zig-zag: first rotate x up past y, then past z.";
+        "Zig-zag: first a zag at y to lift x, then a zig at the former grandparent.";
       spRotateLeft(p);
       spRotateRight(x.parent);
     }

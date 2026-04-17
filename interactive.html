@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interactive Tree Steps — Splay · AVL · Red-Black</title>
+<title>Interactive Tree Steps — All structures</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="trees/step-engine.js"></script>
+<script src="trees/step-extra.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -74,6 +75,11 @@ header a.course:hover { background: #fafaf9; color: #1c1917; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.mode-scroll {
+  max-height: 72px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 .pill {
   border: 1.5px solid #e7e5e4;
@@ -240,7 +246,7 @@ main.main {
 <header class="topbar">
   <div>
     <div class="brand">Tree Steps</div>
-    <div class="brand-sub">Splay · AVL · Red-Black</div>
+    <div class="brand-sub">Splay · AVL · RB · 2-4 · B-tree · Treap · AA</div>
   </div>
   <a class="course" href="index.html">TreeLab home</a>
 </header>
@@ -249,7 +255,7 @@ main.main {
   <aside class="sidebar">
     <div>
       <div class="sb-h">Structure</div>
-      <div class="mode-row" id="mode-row"></div>
+      <div class="mode-scroll"><div class="mode-row" id="mode-row"></div></div>
     </div>
     <div>
       <div class="sb-h">Operation</div>
@@ -297,252 +303,6 @@ main.main {
   </main>
 </div>
 
-<script>
-const E = window.TreeStepEngine;
-const COLORS = {
-  x: '#ea580c',
-  y: '#2563eb',
-  z: '#9333ea',
-  edge: '#d6d3d1',
-  text: '#fff',
-  rbRed: '#dc2626',
-  rbBlk: '#1c1917',
-  avl: '#2563eb',
-  splay: '#16a34a',
-};
-
-let mode = 'splay';
-let op = 'insert';
-let splayRoot = null;
-let avlRoot = null;
-let rbRec = new E.RBRecorder();
-
-let steps = [];
-let idx = 0;
-
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll('#mode-row .pill').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
-}
-function setOp(o) {
-  op = o;
-  document.querySelectorAll('#op-row .pill').forEach(b => b.classList.toggle('on', b.dataset.op === o));
-}
-
-function showErr(msg) {
-  const el = document.getElementById('err-box');
-  el.textContent = msg;
-  el.style.display = msg ? '' : 'none';
-}
-
-function layoutSnapshot(snap, kind) {
-  if (!snap) return { nodes: [], edges: [], w: 400, h: 180 };
-  const wrap = (node, k) => {
-    if (!node) return null;
-    const base = { key: node.key, kind: k, raw: node };
-    if (k === 'rb') {
-      base.color = node.color === 'RED' ? COLORS.rbRed : COLORS.rbBlk;
-    } else if (k === 'avl') {
-      base.h = node.height;
-      base.color = COLORS.avl;
-    } else {
-      base.color = COLORS.splay;
-    }
-    base.left = wrap(node.left, k);
-    base.right = wrap(node.right, k);
-    return base;
-  };
-  const root = wrap(snap, kind);
-  if (!root) return { nodes: [], edges: [], ox: 40, oy: 40, W: 400, H: 180 };
-  const h = d3.hierarchy(root, d => {
-    const c = [];
-    if (d.left) c.push(d.left);
-    if (d.right) c.push(d.right);
-    return c.length ? c : null;
-  });
-  const layout = d3.tree().nodeSize([36, 58])(h);
-  const nodes = [];
-  const edges = [];
-  layout.each(d => {
-    nodes.push({
-      key: d.data.key,
-      x: d.x,
-      y: d.y,
-      color: d.data.color,
-    });
-  });
-  layout.links().forEach(l => {
-    edges.push({ x1: l.source.x, y1: l.source.y, x2: l.target.x, y2: l.target.y });
-  });
-  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
-  const pad = 40;
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const W = Math.max(maxX - minX + pad * 2, 320);
-  const H = Math.max(maxY - minY + pad * 2, 200);
-  const ox = -minX + pad, oy = -minY + pad;
-  return { nodes, edges, ox, oy, W, H };
-}
-
-function drawSnap(svgEl, snap, kind, hx, hy, hz) {
-  const { nodes, edges, ox, oy, W, H } = layoutSnapshot(snap, kind);
-  const svg = d3.select(svgEl);
-  svg.selectAll('*').remove();
-  svg.attr('viewBox', `0 0 ${W} ${H}`).attr('height', Math.min(H, 420));
-  const g = svg.append('g');
-  const zx = hx != null ? String(hx) : null;
-  const zy = hy != null ? String(hy) : null;
-  const zz = hz != null ? String(hz) : null;
-
-  for (const e of edges) {
-    g.append('line')
-      .attr('x1', e.x1 + ox).attr('y1', e.y1 + oy)
-      .attr('x2', e.x2 + ox).attr('y2', e.y2 + oy)
-      .attr('stroke', COLORS.edge).attr('stroke-width', 1.2);
-  }
-  for (const n of nodes) {
-    const id = String(n.key);
-    let stroke = '#fff', sw = 1.5;
-    if (id === zx) { stroke = COLORS.x; sw = 3; }
-    else if (id === zy) { stroke = COLORS.y; sw = 3; }
-    else if (id === zz) { stroke = COLORS.z; sw = 3; }
-    g.append('circle')
-      .attr('cx', n.x + ox).attr('cy', n.y + oy).attr('r', 14)
-      .attr('fill', n.color).attr('stroke', stroke).attr('stroke-width', sw);
-    const shortLabel = String(n.key);
-    g.append('text')
-      .attr('x', n.x + ox).attr('y', n.y + oy + 4)
-      .attr('text-anchor', 'middle')
-      .style('font-family', 'monospace').style('font-size', '10px')
-      .attr('fill', COLORS.text)
-      .text(shortLabel.length > 8 ? shortLabel.slice(0,7)+'…' : shortLabel);
-  }
-  if (!nodes.length) {
-    svg.append('text').attr('x', W/2).attr('y', H/2)
-      .attr('text-anchor', 'middle').attr('fill', '#a8a29e').style('font-size', '12px')
-      .text('Empty');
-  }
-  const zoom = d3.zoom().scaleExtent([0.15, 6]).on('zoom', ev => g.attr('transform', ev.transform));
-  svg.call(zoom);
-}
-
-function explainStep(st) {
-  const el = document.getElementById('explain');
-  if (!st) {
-    el.innerHTML = '<h3>Welcome</h3><p>Pick a structure and operation, enter an integer, and press Run. Use Previous / Next to walk through the recorded steps.</p>';
-    return;
-  }
-  const op = st.opLabel || st.op || '—';
-  const lines = [
-    `<div class="op-tag">${st.title || ''}</div>`,
-    `<p><strong>Operation</strong>: ${op}</p>`,
-    `<p><strong>Alignment / check</strong>: ${st.alignment || '—'}</p>`,
-    `<p>${st.reason || ''}</p>`,
-    `<p style="margin-top:8px;font-size:11px;color:#78716c">Labels: x=${st.x ?? '—'} (focus), y=${st.y ?? '—'} (parent), z=${st.z ?? '—'} (grandparent when present)` +
-      (st.uncleColor != null ? ` · uncle: ${st.uncleColor}` : '') +
-      (st.sameSide === true ? ` · alignment: same side (zig-zig)` : st.sameSide === false ? ` · alignment: opposite sides (zig-zag)` : '') +
-    `</p>`,
-  ];
-  el.innerHTML = lines.join('');
-}
-
-function render() {
-  const st = steps[idx];
-  document.getElementById('step-meta').textContent = steps.length
-    ? `Step ${idx + 1} / ${steps.length}`
-    : 'Step — / —';
-  document.getElementById('btn-prev').disabled = idx <= 0;
-  document.getElementById('btn-next').disabled = idx >= steps.length - 1;
-
-  if (!st) {
-    const kind = mode === 'rb' ? 'rb' : mode === 'avl' ? 'avl' : 'bst';
-    let snap = null;
-    if (mode === 'splay') snap = E.snapNode(splayRoot, 'bst');
-    else if (mode === 'avl') snap = E.snapNode(avlRoot, 'avl');
-    else snap = E.snapRB(rbRec.root, rbRec.NIL);
-    drawSnap(document.getElementById('svg-before'), snap, kind, null, null, null);
-    drawSnap(document.getElementById('svg-after'), snap, kind, null, null, null);
-    explainStep(null);
-    return;
-  }
-
-  const kind = st.kind === 'rb' ? 'rb' : st.kind === 'avl' ? 'avl' : 'bst';
-  drawSnap(document.getElementById('svg-before'), st.before, kind, st.x, st.y, st.z);
-  drawSnap(document.getElementById('svg-after'), st.after, kind, st.x, st.y, st.z);
-  explainStep(st);
-}
-
-function run() {
-  showErr('');
-  const v = parseInt(document.getElementById('val-input').value, 10);
-  if (Number.isNaN(v)) {
-    showErr('Enter an integer key.');
-    return;
-  }
-
-  let res;
-  if (mode === 'splay') {
-    const root = E.cloneSplay(splayRoot);
-    if (op === 'insert') res = E.buildSplayInsertSteps(root, v);
-    else res = E.buildSplayLookupSteps(root, v);
-    if (res.ok) splayRoot = E.cloneSplay(res.finalRoot);
-  } else if (mode === 'avl') {
-    const root = E.cloneAVL(avlRoot);
-    if (op === 'insert') res = E.buildAVLInsertSteps(root, v);
-    else res = E.buildAVLLookupSteps(root, v);
-    if (res.ok) avlRoot = E.cloneAVL(res.finalRoot);
-  } else {
-    const rec = E.cloneRBRecorder(rbRec);
-    if (op === 'insert') res = E.buildRBInsertStepsFrom(rec, v);
-    else res = E.buildRBLookupSteps(rec, v);
-    if (res.ok) rbRec = rec;
-  }
-
-  if (!res.ok) {
-    showErr(res.error || 'Operation failed.');
-    steps = [];
-    idx = 0;
-    render();
-    return;
-  }
-  steps = res.steps;
-  idx = 0;
-  render();
-}
-
-function reset() {
-  splayRoot = null;
-  avlRoot = null;
-  rbRec = new E.RBRecorder();
-  steps = [];
-  idx = 0;
-  showErr('');
-  render();
-}
-
-document.getElementById('mode-row').innerHTML = ['splay','avl','rb'].map(m => {
-  const lab = m === 'splay' ? 'Splay' : m === 'avl' ? 'AVL' : 'RB';
-  return `<button type="button" class="pill${m==='splay'?' on':''}" data-mode="${m}">${lab}</button>`;
-}).join('');
-document.getElementById('mode-row').querySelectorAll('.pill').forEach(b => {
-  b.onclick = () => { setMode(b.dataset.mode); reset(); };
-});
-
-document.getElementById('op-row').innerHTML = ['insert','lookup'].map(o => {
-  const lab = o === 'insert' ? 'Insert' : 'Lookup';
-  return `<button type="button" class="pill${o==='insert'?' on':''}" data-op="${o}">${lab}</button>`;
-}).join('');
-document.getElementById('op-row').querySelectorAll('.pill').forEach(b => {
-  b.onclick = () => setOp(b.dataset.op);
-});
-
-document.getElementById('btn-go').onclick = run;
-document.getElementById('val-input').onkeydown = e => { if (e.key === 'Enter') run(); };
-document.getElementById('btn-reset').onclick = reset;
-document.getElementById('btn-prev').onclick = () => { if (idx > 0) { idx--; render(); } };
-document.getElementById('btn-next').onclick = () => { if (idx < steps.length - 1) { idx++; render(); } };
-
-render();
-</script>
+<script src="trees/interactive-app.js"></script>
 </body>
 </html>
