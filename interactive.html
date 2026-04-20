@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Tree Steps — All structures</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="trees/step-engine.js"></script>
+<script src="trees/step-extra.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  background: #f5f5f4;
+  color: #1c1917;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+header.topbar {
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #e7e5e4;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.brand { font-weight: 700; font-size: 14px; letter-spacing: -0.02em; }
+.brand-sub { font-size: 10px; color: #a8a29e; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+header a.course {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #57534e;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e7e5e4;
+}
+header a.course:hover { background: #fafaf9; color: #1c1917; }
+
+.app {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e7e5e4;
+  padding: 18px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sb-h {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #a8a29e;
+  margin-bottom: 8px;
+}
+.mode-row, .op-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mode-scroll {
+  max-height: 72px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.pill {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  color: #57534e;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.pill:hover { border-color: #a8a29e; }
+.pill.on { border-color: #1c1917; background: #1c1917; color: #fff; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+input[type=number] {
+  width: 110px;
+  border: 1.5px solid #e7e5e4;
+  background: #fafaf9;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: 8px;
+  outline: none;
+}
+input[type=number]:focus { border-color: #a8a29e; }
+.btn {
+  border: none;
+  background: #1c1917;
+  color: #fff;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn:hover { background: #292524; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-sec {
+  background: #fff;
+  color: #57534e;
+  border: 1.5px solid #e7e5e4;
+}
+.btn-sec:hover { border-color: #78716c; color: #1c1917; }
+
+.step-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.step-meta { font-size: 11px; color: #78716c; }
+
+.explain {
+  border: 1.5px solid #e7e5e4;
+  background: #fafaf9;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #44403c;
+  flex: 1;
+  min-height: 120px;
+}
+.explain h3 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #78716c;
+  margin-bottom: 8px;
+}
+.explain .op-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e7e5e4;
+  color: #1c1917;
+  margin-bottom: 8px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 10px;
+  color: #57534e;
+}
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #d6d3d1; }
+.dot-x { background: #ea580c; }
+.dot-y { background: #2563eb; }
+.dot-z { background: #9333ea; }
+
+main.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px 18px;
+  gap: 12px;
+  overflow: auto;
+}
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-height: 280px;
+}
+@media (max-width: 960px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e7e5e4; max-height: 45vh; }
+  .panels { grid-template-columns: 1fr; }
+}
+.panel {
+  border: 1.5px solid #e7e5e4;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.panel h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #78716c;
+  margin-bottom: 8px;
+}
+.tree-svg-wrap {
+  flex: 1;
+  border: 1.5px solid #f5f5f4;
+  background: #fafaf9;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 220px;
+}
+.tree-svg-wrap svg { display: block; width: 100%; }
+.err {
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #991b1b;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div>
+    <div class="brand">Tree Steps</div>
+    <div class="brand-sub">Splay · AVL · RB · 2-4 · B-tree · Treap · AA</div>
+  </div>
+  <a class="course" href="index.html">TreeLab home</a>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div>
+      <div class="sb-h">Structure</div>
+      <div class="mode-scroll"><div class="mode-row" id="mode-row"></div></div>
+    </div>
+    <div>
+      <div class="sb-h">Operation</div>
+      <div class="op-row" id="op-row"></div>
+    </div>
+    <div>
+      <div class="sb-h">Value</div>
+      <div class="controls">
+        <input type="number" id="val-input" placeholder="Integer key">
+        <button class="btn" id="btn-go" type="button">Run</button>
+        <button class="btn btn-sec" id="btn-reset" type="button">Reset all</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="dot dot-x"></span> x</span>
+      <span><span class="dot dot-y"></span> y</span>
+      <span><span class="dot dot-z"></span> z</span>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-sec" id="btn-prev" type="button">Previous</button>
+      <button class="btn btn-sec" id="btn-next" type="button">Next</button>
+      <span class="step-meta" id="step-meta">Step — / —</span>
+    </div>
+    <div>
+      <div class="sb-h">This step</div>
+      <div class="explain" id="explain">
+        <h3>Welcome</h3>
+        <p>Pick a structure and operation, enter an integer, and press Run. Use Previous / Next to walk through the recorded steps.</p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="err-box" class="err" style="display:none"></div>
+    <div class="panels">
+      <div class="panel">
+        <h4>Before this operation</h4>
+        <div class="tree-svg-wrap"><svg id="svg-before"></svg></div>
+      </div>
+      <div class="panel">
+        <h4>After this operation</h4>
+        <div class="tree-svg-wrap"><svg id="svg-after"></svg></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="trees/interactive-app.js"></script>
+</body>
+</html>
